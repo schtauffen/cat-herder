@@ -10,7 +10,7 @@ npm i cat-herder
 ```typescript
 import { World, Entity } from 'cat-herder';
 
-// Components are of form (...args: any) => Record<string, any>
+// Component factories are of form (...args: any) => Record<string, any>
 const Name = (name: string) => ({ name });
 const Velocity = (vx: number, vy: number) => ({ vx, vy });
 
