@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // TODO - move to library and publish to npm (utilize bit.dev?)
-import type { Cast, Prepend, Pos, Reverse, Length, Next } from './type-utils';
-export * from './type-utils';
-declare const BitSet: any;
+import BitSet from "bitset";
+import type { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
 
 type QueryResult<T extends ComponentFactory> =
   T extends typeof Entity
@@ -76,19 +75,22 @@ interface QueryBuilder<R> {
   result(): R; 
 }
 
+const ZERO_BITSET = new BitSet();
 export function World(): IWorld {
   let componentId = 0;
   let entityId = 0;
   const componentsMap: Map<ComponentFactory, Component[]> = new Map();
   const componentsBit: Map<ComponentFactory, number> = new Map();
-  const entities: Map<number, typeof BitSet> = new Map();
+  const entities: Map<number, BitSet> = new Map();
   // DEBUG
-  const w = window as any;
-  w.componentsMap = componentsMap;
-  w.componentsBit = componentsBit;
-  w.entities = entities;
+  if (typeof window !== 'undefined') {
+    const w = window as any;
+    w.componentsMap = componentsMap;
+    w.componentsBit = componentsBit;
+    w.entities = entities;
+  }
 
-  function toBitset(factories: ComponentFactory[]): typeof BitSet {
+  function toBitset(factories: ComponentFactory[]): BitSet {
     const bitset = new BitSet();
 
     for (const factory of factories) {
@@ -127,7 +129,7 @@ export function World(): IWorld {
 
     query<T extends ComponentFactory[]>(...factories: T): QueryBuilder<ReturnTypes<T>[]> {
       const has = toBitset(factories);
-      let hasnt = BitSet();
+      let hasnt = new BitSet();
 
       let query: QueryBuilder<ReturnTypes<T>[]>;
       return query = {
@@ -141,7 +143,7 @@ export function World(): IWorld {
         result() {
           const results: any[] = [];
           for (const [entity, bitset] of entities.entries()) {
-            if (has.and(bitset).equals(has) && hasnt.and(bitset).equals(0)) {
+            if (has.and(bitset).equals(has) && hasnt.and(bitset).equals(ZERO_BITSET)) {
               const result = new Array(factories.length);
               for (const [idx, factory] of factories.entries()) {
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -226,6 +228,10 @@ export function World(): IWorld {
       // TODO - delay and batch?
       // TODO - reuse deleted entity id's
       const entityMask = entities.get(entity);
+      if (!entityMask) {
+        return;
+      }
+
       for (const cid of entityMask.toArray()) {
         for (const [factory, bit] of componentsBit.entries()) {
           if (bit === cid) {
