@@ -25,7 +25,7 @@ export default [
     plugins,
   },
   {
-    input ,
+    input,
     output: {
       file: pkg.main,
       format: "cjs",
@@ -33,4 +33,4 @@ export default [
     },
     plugins,
   },
-]
+];

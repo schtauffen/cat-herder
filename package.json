@@ -1,7 +1,7 @@
 {
   "name": "cat-herder",
   "version": "0.1.0",
-  "description": "An ECS library for javascript",
+  "description": "An ECS implementation in TypeScript",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "scripts": {
@@ -9,6 +9,7 @@
     "lint": "eslint src --ext .ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "files": ["dist"],
   "author": "",
   "license": "ISC",
   "devDependencies": {
