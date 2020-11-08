@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import BitSet from "bitset";
 import { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
+import { IdentityPool } from "./identity";
 
 type QueryResult<T extends ComponentFactory> = T extends typeof Entity
   ? number
@@ -75,18 +76,11 @@ interface QueryBuilder<R> {
 
 const ZERO_BITSET = new BitSet();
 export function World(): IWorld {
-  let componentId = 0;
-  let entityId = 0;
+  const componentIds = IdentityPool();
+  const entityIds = IdentityPool();
   const componentsMap: Map<ComponentFactory, Component[]> = new Map();
   const componentsBit: Map<ComponentFactory, number> = new Map();
   const entities: Map<number, BitSet> = new Map();
-  // DEBUG
-  if (typeof window !== "undefined") {
-    const w = window as any;
-    w.componentsMap = componentsMap;
-    w.componentsBit = componentsBit;
-    w.entities = entities;
-  }
 
   function toBitset(factories: ComponentFactory[]): BitSet {
     const bitset = new BitSet();
@@ -113,7 +107,7 @@ export function World(): IWorld {
   return (world = {
     register(factory) {
       componentsMap.set(factory, []);
-      componentsBit.set(factory, componentId++);
+      componentsBit.set(factory, componentIds.get());
       return (world as unknown) as IWorld;
     },
 
@@ -171,7 +165,6 @@ export function World(): IWorld {
     },
 
     entity() {
-      const entity = entityId++;
       const parts: [any, any][] = [];
       let builder: EntityBuilder;
 
@@ -184,6 +177,9 @@ export function World(): IWorld {
         },
 
         build() {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          const entity = entityIds.get();
+
           const entityMask = new BitSet();
           for (const [factory, args] of parts) {
             const bit = componentsBit.get(factory);
@@ -247,14 +243,13 @@ export function World(): IWorld {
     },
 
     delete(entity) {
-      // TODO - would get cleaned up by transition to number id'd components
-      // TODO - delay and batch?
-      // TODO - reuse deleted entity id's
       const entityMask = entities.get(entity);
       if (!entityMask) {
         return;
       }
 
+      // TODO - would get cleaned up by transition to number id'd components
+      // TODO - delay and batch?
       for (const cid of entityMask.toArray()) {
         for (const [factory, bit] of componentsBit.entries()) {
           if (bit === cid) {
@@ -263,7 +258,9 @@ export function World(): IWorld {
           }
         }
       }
+
       entities.delete(entity);
+      entityIds.retire(entity);
     },
   } as IWorld);
 }
