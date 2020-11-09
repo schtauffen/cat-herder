@@ -42,6 +42,109 @@ for (const [name, velocity] of world.query(Name, Velocity).result()) {
 }
 ```
 
+## Entities
+### entity 
+Creates an entity with attached components.
+```ts
+const bob = world
+  .entity()
+  .with(Name)("Bob")
+  .with(Position)(10, 10)
+  .with(Velocity)(1, 2)
+  .build();
+```
+### delete
+Removes entity and any attached components.
+```ts
+world.delete(bob);
+```
+## Components
+### register
+Makes component available to attach to entities.  
+Component factories must have form `(...args: any) => Record<string, any>`  
+Attempting to attach an unregistered component will throw an error.  
+Support for class-based components is on the roadmap.  
+```ts
+const Name = (name: string) => ({ name });
+
+world.register(Name);
+
+world
+  .entity()
+  .with(Name)("Bob") // will give appropriate type hints with TS
+  .build();
+```
+### add
+Attaches component to entity.
+Attempting to attach an unregistered component will throw an error.  
+Attempting to attach to an unknown entity will throw an error.  
+```ts
+const myEntity = world.entity().build();
+
+myEntity.add(Name, myEntity)("Roger");
+```
+### get
+Returns given component for entity. Will return null if not found.  
+Attempting to retrieve an unregistered component will throw an error.  
+Attempting to retrieve from an unknown entity will throw an error.  
+```ts
+world.get(Name, myEntity);
+```
+### remove
+Removes component from entity.  
+Attempting to remove an unregistered component will throw an error.  
+Attempting to remove from an unknown entity will throw an error.  
+```ts
+world.remove(Name, myEntity);
+```
+### query
+Returns results for all entities with matching components.  
+Will exclude any entities with components in the `not` clause.  
+You can retrieve entity by using the `Entity` component.  
+```ts
+import { Entity, World } from 'cat-herder';
+
+const Name = (name: string) => ({ name });
+const Position = (vx: number, vy: number) => ({ vx, vy });
+const Dead = () => ({}); // Tag component (doesn't contain any actual data)
+
+const world = World();
+const mario = world
+  .entity()
+  .with(Name)("Mario")
+  .with(Position)(10, 10)
+  .build();
+const luigi = world
+  .entity()
+  .with(Name)("Luigi")
+  .with(Position)(5, 10)
+  .build();
+const Toad = world
+  .entity()
+  .with(Name)("Toad")
+  .with(Position)(15, 10)
+  .build();
+
+// oops, Luigi had an accident
+world.add(Dead, luigi);
+
+for (const [entity, name, pos] of world.query(Entity, Name, Position).not(Dead).result()) {
+  // Contains valid type hints in TS
+  console.log(name.name); // Mario ; Toad
+  console.log(`${pos.x}, ${pos.y}`); // 10, 10 ; 15 , 10
+}
+```
+## Systems
+### system
+TODO
+### tick
+TODO
+## Resources
+### resource
+TODO
+### tick
+TODO
+
 ## Dependencies
 For now, cat-herder bundles [BitSet](https://www.npmjs.com/package/bitset).
 
