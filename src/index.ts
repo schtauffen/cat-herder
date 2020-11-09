@@ -43,6 +43,11 @@ export function Entity(): { "@@entity": true } {
 //    Components ✓
 //    Systems // TODO - evaluate parrallel execution in the future
 export interface IWorld {
+  // Entities
+  entity(): EntityBuilder;
+  delete(entity: number): void;
+
+  // Components
   register(factory: ComponentFactory): IWorld;
   get<T extends ComponentFactory>(
     factory: T,
@@ -56,8 +61,14 @@ export interface IWorld {
   query<T extends ComponentFactory[]>(
     ...factories: T
   ): QueryBuilder<ReturnTypes<T>[]>;
-  entity(): EntityBuilder;
-  delete(entity: number): void;
+
+  // Systems
+  // system()
+  // tick()
+
+  // Resources
+  // resource<T>(res: T): <T>
+  // fetch()
 }
 
 type BoundFactory<R, T extends ComponentFactory> = (
@@ -120,7 +131,7 @@ export function World(): IWorld {
       }
 
       const component = components[entity];
-      return typeof component === undefined
+      return typeof component === "undefined"
         ? null
         : (component as ReturnType<T>);
     },
@@ -227,7 +238,7 @@ export function World(): IWorld {
       const components = componentsMap.get(factory);
       if (bit === undefined || components === undefined) {
         throw new TypeError(
-          `Attempted to remove Component from entity that didn't exist: ${factory.name}`,
+          `Attempted to remove unknown Component: ${factory.name}`,
         );
       }
 
@@ -250,12 +261,10 @@ export function World(): IWorld {
 
       // TODO - would get cleaned up by transition to number id'd components
       // TODO - delay and batch?
-      for (const cid of entityMask.toArray()) {
-        for (const [factory, bit] of componentsBit.entries()) {
-          if (bit === cid) {
-            world.remove(factory, bit);
-            break;
-          }
+      const toDelete = entityMask.toArray();
+      for (const [factory, bit] of componentsBit.entries()) {
+        if (toDelete.indexOf(bit) !== -1) {
+          world.remove(factory, entity);
         }
       }
 
