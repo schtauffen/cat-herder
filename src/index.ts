@@ -28,8 +28,9 @@ type ReturnTypes<T extends ComponentFactory[]> = ReturnTypesInternal<
 //    -> with(Name(...args))
 //    also lets us go back to using an integer with array instead of Map<ComponentFactory, ..>
 // TODO - allow selection of Array or Map for speed characteristics?
-type Component = Record<string, any>;
-interface ComponentFactory {
+// TODO - also allow Tag components which don't need to store data in array...
+export type Component = Record<string, any>;
+export interface ComponentFactory {
   (...args: any): Component;
 }
 
@@ -37,18 +38,20 @@ export function Entity(): { "@@entity": true } {
   throw new Error("Construct entities with World#entity()");
 }
 
+export type System<R> = (world: IWorld<R>) => void;
+
 //  World
-//    Resources
+//    Resources ✓
 //    Entities ✓
 //    Components ✓
 //    Systems // TODO - evaluate parrallel execution in the future
-export interface IWorld {
+export interface IWorld<R> {
   // Entities
   entity(): EntityBuilder;
   delete(entity: number): void;
 
   // Components
-  register(factory: ComponentFactory): IWorld;
+  register(factory: ComponentFactory): IWorld<R>;
   get<T extends ComponentFactory>(
     factory: T,
     entity: number,
@@ -63,12 +66,10 @@ export interface IWorld {
   ): QueryBuilder<ReturnTypes<T>[]>;
 
   // Systems
-  // system()
-  // tick()
+  system(sys: System<R>): void;
+  update(): void;
 
-  // Resources
-  // resource<T>(res: T): <T>
-  // fetch()
+  resources: R;
 }
 
 type BoundFactory<R, T extends ComponentFactory> = (
@@ -86,12 +87,13 @@ interface QueryBuilder<R> {
 }
 
 const ZERO_BITSET = new BitSet();
-export function World(): IWorld {
+export function World<R = Record<string, any>>(resources: R): IWorld<R> {
   const componentIds = IdentityPool();
   const entityIds = IdentityPool();
   const componentsMap: Map<ComponentFactory, Component[]> = new Map();
   const componentsBit: Map<ComponentFactory, number> = new Map();
   const entities: Map<number, BitSet> = new Map();
+  const systems: System<R>[] = [];
 
   function toBitset(factories: ComponentFactory[]): BitSet {
     const bitset = new BitSet();
@@ -114,12 +116,14 @@ export function World(): IWorld {
     return bitset;
   }
 
-  let world: IWorld;
+  let world: IWorld<R>;
   return (world = {
-    register(factory) {
+    resources,
+
+    register(factory: ComponentFactory) {
       componentsMap.set(factory, []);
       componentsBit.set(factory, componentIds.get());
-      return (world as unknown) as IWorld;
+      return (world as unknown) as IWorld<R>;
     },
 
     get<T extends ComponentFactory>(factory: T, entity: number) {
@@ -233,7 +237,7 @@ export function World(): IWorld {
       };
     },
 
-    remove(factory, entity) {
+    remove(factory: ComponentFactory, entity: number) {
       const bit = componentsBit.get(factory);
       const components = componentsMap.get(factory);
       if (bit === undefined || components === undefined) {
@@ -253,7 +257,7 @@ export function World(): IWorld {
       entityMask.set(bit, 0);
     },
 
-    delete(entity) {
+    delete(entity: number) {
       const entityMask = entities.get(entity);
       if (!entityMask) {
         return;
@@ -271,5 +275,16 @@ export function World(): IWorld {
       entities.delete(entity);
       entityIds.retire(entity);
     },
-  } as IWorld);
+
+    // TODO - scheduling? disabling?
+    system(sys: System<R>): void {
+      systems.push(sys);
+    },
+
+    update(): void {
+      for (const sys of systems) {
+        sys(world);
+      }
+    },
+  } as IWorld<R>);
 }

@@ -14,7 +14,7 @@ import { World, Entity } from 'cat-herder';
 const Name = (name: string) => ({ name });
 const Velocity = (vx: number, vy: number) => ({ vx, vy });
 
-const world = World();
+const world = World({});
 
 world.register(Name);
 
@@ -40,6 +40,34 @@ for (const [name, velocity] of world.query(Name, Velocity).result()) {
   console.log(name.name); // "Roger"
   console.log(velocity); // { vx: 0, vy: 1 }
 }
+```
+
+### API
+  - [World](#world)
+  - [Entities](#entities)
+    - [entity](#entity)
+    - [delete](#delete)
+  - [Components](#components)
+    - [register](#register)
+    - [add](#add)
+    - [get](#get)
+    - [remove](#remove)
+    - [query](#query)
+  - [Systems](#systems)
+    - [system](#system)
+    - [update](#update)
+  - [Resources](#resources)
+
+## World
+World<T> expects initial shared resources to be T.  
+T defaults to `Record<string, any>`.  
+```ts
+interface IResources {
+  time: number,
+  someOtherResource?: ISomeOtherResource,
+}
+
+const world = World({ time: new Date().getTime() }); 
 ```
 
 ## Entities
@@ -108,7 +136,7 @@ const Name = (name: string) => ({ name });
 const Position = (vx: number, vy: number) => ({ vx, vy });
 const Dead = () => ({}); // Tag component (doesn't contain any actual data)
 
-const world = World();
+const world = World({});
 const mario = world
   .entity()
   .with(Name)("Mario")
@@ -119,7 +147,7 @@ const luigi = world
   .with(Name)("Luigi")
   .with(Position)(5, 10)
   .build();
-const Toad = world
+const toad = world
   .entity()
   .with(Name)("Toad")
   .with(Position)(15, 10)
@@ -136,14 +164,51 @@ for (const [entity, name, pos] of world.query(Entity, Name, Position).not(Dead).
 ```
 ## Systems
 ### system
-TODO
-### tick
-TODO
+Registers a function which should run each game tick.  
+They occur in the order registered.  
+```ts
+// system setup
+import { System, Resource } from "cat-herder";
+
+function movementSystem<T>(world: IWorld<T>) {
+  const { time } = world.resources;
+
+  for (
+    const [pos, vel] of
+    world.query(Position, Velocity).result()
+  ) {
+    pos.x += vel.vx * time.elapsed;
+    pos.y += vel.vy * time.elapsed;
+  }
+}
+
+// init
+world.system(movementSystem);
+
+// each game tick
+world.update();
+```
+### update
+Trigger all registered systems.  
+```ts
+world.update();
+```
 ## Resources
-### resource
-TODO
-### tick
-TODO
+Initial state should be passed in to the World on creation.  
+Use it as a dictionary of shared resources.  
+```ts
+const world = World({
+  time: new Date().getTime(),
+  delta: 1,
+})
+
+world.system(world => {
+  const time = new Date().getTime();
+  const delta = (time - world.resources.time) * 60 / 1000;
+  world.resources.time = time;
+  world.resources.delta = delta;
+});
+```
 
 ## Dependencies
 For now, cat-herder bundles [BitSet](https://www.npmjs.com/package/bitset).
