@@ -21,7 +21,10 @@ const Velocity = (vx: number, vy: number) => ({ vx, vy });
 
 const world = World({});
 
-world.register(Name);
+world
+  .register(Name)
+  .register(Velocity)
+  ;
 
 // Entities
 const bob = world.entity()
@@ -72,7 +75,7 @@ interface IResources {
   someOtherResource?: ISomeOtherResource,
 }
 
-const world = World({ time: new Date().getTime() }); 
+const world = World({ time: Date.now() }); 
 ```
 
 ## Entities
@@ -141,7 +144,12 @@ const Name = (name: string) => ({ name });
 const Position = (vx: number, vy: number) => ({ vx, vy });
 const Dead = () => ({}); // Tag component (doesn't contain any actual data)
 
-const world = World({});
+const world = World({})
+  .register(Name)
+  .register(Position)
+  .register(Dead)
+  ;
+
 const mario = world
   .entity()
   .with(Name)("Mario")
@@ -175,7 +183,7 @@ They occur in the order registered.
 // system setup
 import { System, Resource } from "cat-herder";
 
-function movementSystem<T>(world: IWorld<T>) {
+function movementSystem(world: IWorld) {
   const { time } = world.resources;
 
   for (
@@ -203,12 +211,12 @@ Initial state should be passed in to the World on creation.
 Use it as a dictionary of shared resources.  
 ```ts
 const world = World({
-  time: new Date().getTime(),
+  time: Date.now(),
   delta: 1,
 })
 
 world.system(world => {
-  const time = new Date().getTime();
+  const time = Date.now();
   const delta = (time - world.resources.time) * 60 / 1000;
   world.resources.time = time;
   world.resources.delta = delta;
