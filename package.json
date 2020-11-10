@@ -17,7 +17,7 @@
   ],
   "repository": "schtauffen/cat-herder",
   "author": "Zach Dahl<z.schtauffen@gmail.com>",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^16.0.0",
     "@rollup/plugin-node-resolve": "^10.0.0",
