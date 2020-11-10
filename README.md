@@ -1,8 +1,13 @@
 # Cat Herder
-An ECS ([Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system)) implementation written in TypeScript.
+An ECS ([Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system)) implementation written in TypeScript.  
 
 ```bash
 npm i cat-herder
+```
+
+There is a umd build available:
+```html
+<script src="https://unpkg.com/cat-herder@latest/dist/cat-herder.umd.js"></script>
 ```
 
 ## Usage
