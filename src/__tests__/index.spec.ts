@@ -246,12 +246,13 @@ describe("World", () => {
     it("should run systems in order they are added", () => {
       const world = World({ result: "" });
 
-      world.system((w) => {
-        w.resources.result += "a";
-      });
-      world.system((w) => {
-        w.resources.result += "b";
-      });
+      world
+        .system((w) => {
+          w.resources.result += "a";
+        })
+        .system((w) => {
+          w.resources.result += "b";
+        });
       world.system((w) => {
         w.resources.result += "c";
       });

@@ -66,7 +66,7 @@ export interface IWorld<R = Record<string, any>> {
   ): QueryBuilder<ReturnTypes<T>[]>;
 
   // Systems
-  system(sys: System<R>): void;
+  system(sys: System<R>): IWorld<R>;
   update(): void;
 
   resources: R;
@@ -277,8 +277,9 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
     },
 
     // TODO - scheduling? disabling?
-    system(sys: System<R>): void {
+    system(sys: System<R>): IWorld<R> {
       systems.push(sys);
+      return world;
     },
 
     update(): void {
