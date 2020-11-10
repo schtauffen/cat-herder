@@ -11,13 +11,13 @@ describe("Entity", () => {
 
 describe("World", () => {
   it("should create", () => {
-    expect(World()).toBeTruthy();
+    expect(World({})).toBeTruthy();
   });
 
   describe("Entities", () => {
     describe("entity", () => {
       it("should return entity builder", () => {
-        const world = World();
+        const world = World({});
 
         const entity0 = world.entity().build();
         const entity1 = world.entity().build();
@@ -27,7 +27,7 @@ describe("World", () => {
       });
 
       it("should throw when given unregistered component", () => {
-        const world = World();
+        const world = World({});
         const Foo = () => ({});
 
         expect(() => {
@@ -38,7 +38,7 @@ describe("World", () => {
 
     describe("delete", () => {
       it("should remove entity with all components", () => {
-        const world = World();
+        const world = World({});
         const Name = (name: string) => ({ name });
         const Position = (x: number, y: number) => ({ x, y });
         world.register(Name);
@@ -57,7 +57,7 @@ describe("World", () => {
       });
 
       it("should fail gracefully for unknown entity", () => {
-        const world = World();
+        const world = World({});
 
         expect(() => {
           world.delete(0);
@@ -73,7 +73,7 @@ describe("World", () => {
     let world: IWorld;
 
     beforeEach(() => {
-      world = World();
+      world = World({});
     });
 
     describe("register", () => {
@@ -239,6 +239,28 @@ describe("World", () => {
           world.query(Foo);
         }).toThrowError("unknown Component");
       });
+    });
+  });
+
+  describe("Systems", () => {
+    it("should run systems in order they are added", () => {
+      const world = World({ result: "" });
+
+      world.system((w) => {
+        w.resources.result += "a";
+      });
+      world.system((w) => {
+        w.resources.result += "b";
+      });
+      world.system((w) => {
+        w.resources.result += "c";
+      });
+
+      world.update();
+      expect(world.resources.result).toEqual("abc");
+
+      world.update();
+      expect(world.resources.result).toEqual("abcabc");
     });
   });
 });

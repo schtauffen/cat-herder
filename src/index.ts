@@ -45,7 +45,7 @@ export type System<R> = (world: IWorld<R>) => void;
 //    Entities ✓
 //    Components ✓
 //    Systems // TODO - evaluate parrallel execution in the future
-export interface IWorld<R> {
+export interface IWorld<R = Record<string, any>> {
   // Entities
   entity(): EntityBuilder;
   delete(entity: number): void;
