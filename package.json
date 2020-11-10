@@ -2,8 +2,8 @@
   "name": "cat-herder",
   "version": "0.1.5",
   "description": "An ECS implementation in TypeScript",
-  "main": "dist/cat-herder.js",
-  "module": "dist/cat-herder.esm.js",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
   "umd": "dist/cat-herder.umd.js",
   "scripts": {
     "build": "rimraf dist && rollup -c",
