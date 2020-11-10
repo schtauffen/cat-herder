@@ -33,4 +33,14 @@ export default [
     },
     plugins,
   },
+  {
+    input,
+    output: {
+      name: "CatHerder",
+      file: pkg.umd,
+      format: "umd",
+      sourcemap: true,
+    },
+    plugins,
+  },
 ];
