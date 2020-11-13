@@ -8,7 +8,6 @@ const input = "src/index.ts";
 
 const plugins = [
   commonjs(),
-  nodeResolve(),
   typescript({
     typescript: require("typescript"),
   }),
@@ -41,6 +40,12 @@ export default [
       format: "umd",
       sourcemap: true,
     },
-    plugins,
+    plugins: [
+      commonjs(),
+      nodeResolve(),
+      typescript({
+        typescript: require("typescript"),
+      }),
+    ],
   },
 ];

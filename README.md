@@ -224,7 +224,7 @@ world.system(world => {
 ```
 
 ## Dependencies
-For now, cat-herder bundles [BitSet](https://www.npmjs.com/package/bitset).
+For now, cat-herder requires [BitSet](https://www.npmjs.com/package/bitset).
 
 ## Example
 [https://github.com/schtauffen/ts-ecs](https://github.com/schtauffen/ts-ecs)
