@@ -28,11 +28,13 @@ type ReturnTypes<T extends ComponentFactory[]> = ReturnTypesInternal<
 //    -> with(Name(...args))
 //    also lets us go back to using an integer with array instead of Map<ComponentFactory, ..>
 // TODO - allow selection of Array or Map for speed characteristics?
-// TODO - also allow Tag components which don't need to store data in array...
 export type Component = Record<string, any>;
 export interface ComponentFactory {
   (...args: any): Component;
 }
+
+// TODO - allow tag components to not require storing data in array
+export const Tag: () => ComponentFactory = () => () => ({});
 
 export function Entity(): { "@@entity": true } {
   throw new Error("Construct entities with World#entity()");
