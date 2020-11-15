@@ -10,7 +10,7 @@
     "lint": "eslint src --ext .ts",
     "start": "jest --watch",
     "test": "jest",
-    "prepublish": "run-s lint test build"
+    "prepublishOnly": "run-s lint test build"
   },
   "files": [
     "dist"
