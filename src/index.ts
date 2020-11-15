@@ -47,7 +47,7 @@ export type System<R> = (world: IWorld<R>) => void;
 //    Systems // TODO - evaluate parrallel execution in the future
 export interface IWorld<R = Record<string, any>> {
   // Entities
-  entity(): EntityBuilder;
+  entity(): IEntityBuilder;
   delete(entity: number): void;
 
   // Components
@@ -63,7 +63,7 @@ export interface IWorld<R = Record<string, any>> {
   remove(factory: ComponentFactory, entity: number): void;
   query<T extends ComponentFactory[]>(
     ...factories: T
-  ): QueryBuilder<ReturnTypes<T>[]>;
+  ): IQueryBuilder<ReturnTypes<T>[]>;
 
   // Systems
   system(sys: System<R>): IWorld<R>;
@@ -72,17 +72,17 @@ export interface IWorld<R = Record<string, any>> {
   resources: R;
 }
 
-type BoundFactory<R, T extends ComponentFactory> = (
+export type BoundFactory<R, T extends ComponentFactory> = (
   ...args: Parameters<T>
 ) => R;
 
-interface EntityBuilder {
-  with<T extends ComponentFactory>(factory: T): BoundFactory<EntityBuilder, T>;
+export interface IEntityBuilder {
+  with<T extends ComponentFactory>(factory: T): BoundFactory<IEntityBuilder, T>;
   build(): number;
 }
 
-interface QueryBuilder<R> {
-  not(...factories: ComponentFactory[]): QueryBuilder<R>;
+export interface IQueryBuilder<R> {
+  not(...factories: ComponentFactory[]): IQueryBuilder<R>;
   result(): R;
 }
 
@@ -142,11 +142,11 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
 
     query<T extends ComponentFactory[]>(
       ...factories: T
-    ): QueryBuilder<ReturnTypes<T>[]> {
+    ): IQueryBuilder<ReturnTypes<T>[]> {
       const has = toBitset(factories);
       let hasnt = new BitSet();
 
-      let query: QueryBuilder<ReturnTypes<T>[]>;
+      let query: IQueryBuilder<ReturnTypes<T>[]>;
       return (query = {
         not(...factories) {
           hasnt = toBitset(factories);
@@ -181,7 +181,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
 
     entity() {
       const parts: [any, any][] = [];
-      let builder: EntityBuilder;
+      let builder: IEntityBuilder;
 
       return (builder = {
         with<T extends ComponentFactory>(factory: T) {
