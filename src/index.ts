@@ -63,6 +63,9 @@ export interface IWorld<R = Record<string, any>> {
     entity: number,
   ): BoundFactory<void, T>;
   remove(factory: ComponentFactory, entity: number): void;
+  query_iter<T extends ComponentFactory[]>(
+    ...factories: T
+  ): IQuery<ReturnTypes<T>>;
   query<T extends ComponentFactory[]>(
     ...factories: T
   ): IQueryBuilder<ReturnTypes<T>[]>;
@@ -81,6 +84,11 @@ export type BoundFactory<R, T extends ComponentFactory> = (
 export interface IEntityBuilder {
   with<T extends ComponentFactory>(factory: T): BoundFactory<IEntityBuilder, T>;
   build(): number;
+}
+
+export interface IQuery<R> extends IterableIterator<R> {
+  not(...factories: ComponentFactory[]): IQuery<R>;
+  collect(): R[];
 }
 
 export interface IQueryBuilder<R> {
@@ -140,6 +148,63 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
       return typeof component === "undefined"
         ? null
         : (component as ReturnType<T>);
+    },
+
+    query_iter<T extends ComponentFactory[]>(
+      ...factories: T
+    ): IQuery<ReturnTypes<T>> {
+      const has = toBitset(factories);
+      let hasnt = new BitSet();
+      let pristine = true;
+
+      const iterator: any = (function* () {
+        pristine = false;
+
+        for (const [entity, bitset] of entities.entries()) {
+          if (
+            has.and(bitset).equals(has) &&
+            hasnt.and(bitset).equals(ZERO_BITSET)
+          ) {
+            const result = new Array(factories.length);
+            for (const [idx, factory] of factories.entries()) {
+              result[idx] =
+                factory === Entity
+                  ? entity
+                  : // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    componentsMap.get(factory)![entity];
+            }
+            yield result;
+          }
+        }
+      })();
+
+      // TODO - is there a native method for this?
+      iterator.collect = () => {
+        if (!pristine) {
+          throw new Error(
+            `#collect() only expected to be called on pristine query.`,
+          );
+        }
+        const result = [];
+
+        for (const r of iterator) {
+          result.push(r);
+        }
+
+        return (result as unknown) as ReturnTypes<T>[];
+      };
+
+      iterator.not = (...without: ComponentFactory[]) => {
+        if (!pristine) {
+          throw new Error(
+            `#not() only expected to be called on pristine query.`,
+          );
+        }
+        hasnt = toBitset(without);
+        return iterator;
+      };
+
+      return iterator as IQuery<ReturnTypes<T>>;
     },
 
     query<T extends ComponentFactory[]>(

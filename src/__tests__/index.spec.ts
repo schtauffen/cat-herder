@@ -188,6 +188,89 @@ describe("World", () => {
       });
     });
 
+    describe("query_iter", () => {
+      beforeEach(() => {
+        world.register(Name);
+        world.register(Position);
+        world.register(Velocity);
+        world
+          .entity()
+          .with(Name)("Bob")
+          .with(Position)(1, 2)
+          .with(Velocity)(0, 2)
+          .build();
+        world.entity().with(Name)("Roger").with(Position)(0, -1).build();
+        world
+          .entity()
+          .with(Name)("Tom")
+          .with(Position)(-9, 3)
+          .with(Velocity)(1, 1)
+          .build();
+      });
+
+      it("should return components which match", () => {
+        const result = world.query_iter(Name, Position, Velocity).collect();
+
+        expect(result).toEqual([
+          [{ name: "Bob" }, { x: 1, y: 2 }, { vx: 0, vy: 2 }],
+          [{ name: "Tom" }, { x: -9, y: 3 }, { vx: 1, vy: 1 }],
+        ]);
+      });
+
+      it("should allow negative searches", () => {
+        const result = world.query_iter(Name).not(Velocity).collect();
+
+        expect(result).toEqual([[{ name: "Roger" }]]);
+      });
+
+      it("should return entities when requested", () => {
+        const result = world.query_iter(Position, Entity).collect();
+
+        expect(result).toEqual([
+          [{ x: 1, y: 2 }, 0],
+          [{ x: 0, y: -1 }, 1],
+          [{ x: -9, y: 3 }, 2],
+        ]);
+      });
+
+      it("should throw given an unregister component", () => {
+        expect(() => {
+          const Foo = () => ({});
+          world.query_iter(Foo);
+        }).toThrowError("unknown Component");
+      });
+
+      it("should be iterable", () => {
+        const result = [];
+
+        for (const [name] of world.query_iter(Name)) {
+          result.push(name.name);
+        }
+
+        expect(result).toEqual(["Bob", "Roger", "Tom"]);
+      });
+
+      it("should throw if #collect() called after iteration has started", () => {
+        expect(() => {
+          const query = world.query_iter(Name);
+          for (const [] of query) {
+            break;
+          }
+          query.collect();
+        }).toThrowError("#collect()");
+      });
+
+      it("should throw if #not() called after iteration has started", () => {
+        expect(() => {
+          const query = world.query_iter(Name);
+          for (const [] of query) {
+            break;
+          }
+          query.not(Velocity);
+        }).toThrowError("#not()");
+      });
+    });
+
     describe("query", () => {
       beforeEach(() => {
         world.register(Name);

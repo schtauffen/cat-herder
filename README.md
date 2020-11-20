@@ -61,6 +61,7 @@ for (const [name, velocity] of world.query(Name, Velocity).result()) {
     - [get](#get)
     - [remove](#remove)
     - [query](#query)
+    - [query_iter](#query_iter)
   - [Systems](#systems)
     - [system](#system)
     - [update](#update)
@@ -175,6 +176,24 @@ for (const [entity, name, pos] of world.query(Entity, Name, Position).not(Dead).
   console.log(`${pos.x}, ${pos.y}`); // 10, 10 ; 15 , 10
 }
 ```
+### query_iter
+Experimental version of query which doesn't require the `.result()` call before iteration.  
+It accesses data lazily, so you can terminate lookups on demand.  
+Must call `.collect()` to access as array.  
+Will throw if `.collect()` or `.not()` are called after iteration has started.  
+
+```ts
+for (const [life] of world.query_iter(Life, Ally)) {
+  if (life <= 0) {
+    world.resources.game_over = true;
+    break;
+  }
+}
+
+// to access as array
+const allies_count = world.query_iter(Ally).collect().length;
+```
+
 ## Systems
 ### system
 Registers a function which should run each game tick.  
