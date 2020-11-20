@@ -22,6 +22,7 @@ export default [
       sourcemap: true,
     },
     plugins,
+    external: ["bitset"],
   },
   {
     input,
@@ -31,6 +32,7 @@ export default [
       sourcemap: true,
     },
     plugins,
+    external: ["bitset"],
   },
   {
     input,
