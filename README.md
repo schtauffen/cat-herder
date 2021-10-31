@@ -147,8 +147,7 @@ const Dead = () => ({}); // Tag component (doesn't contain any actual data)
 const world = World({})
   .register(Name)
   .register(Position)
-  .register(Dead)
-  ;
+  .register(Dead);
 
 const mario = world
   .entity()
