@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import BitSet from "bitset";
-import { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
+import type { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
 import { IdentityPool } from "./identity";
 
 type QueryResult<T extends ComponentFactory> = T extends typeof Entity
