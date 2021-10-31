@@ -10,7 +10,7 @@ type QueryResult<T extends ComponentFactory> = T extends typeof Entity
 type ReturnTypesInternal<
   T extends ComponentFactory[],
   R extends any[] = [],
-  I extends any[] = []
+  I extends any[] = [],
 > = {
   0: ReturnTypesInternal<T, Prepend<QueryResult<T[Pos<I>]>, R>, Next<I>>;
   1: R;
@@ -133,7 +133,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
     register(factory: ComponentFactory) {
       componentsMap.set(factory, []);
       componentsBit.set(factory, componentIds.get());
-      return (world as unknown) as IWorld<R>;
+      return world as unknown as IWorld<R>;
     },
 
     get<T extends ComponentFactory>(factory: T, entity: number) {
@@ -191,7 +191,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
           result.push(r);
         }
 
-        return (result as unknown) as ReturnTypes<T>[];
+        return result as unknown as ReturnTypes<T>[];
       };
 
       iterator.not = (...without: ComponentFactory[]) => {
@@ -241,7 +241,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
             }
           }
 
-          return (results as unknown) as ReturnTypes<T>[];
+          return results as unknown as ReturnTypes<T>[];
         },
       });
     },

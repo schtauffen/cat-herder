@@ -18,7 +18,7 @@ export type Next<I extends any[]> = Prepend<any, I>;
 export type Reverse<
   T extends any[],
   R extends any[] = [],
-  I extends any[] = []
+  I extends any[] = [],
 > = {
   0: Reverse<T, Prepend<T[Pos<I>], R>, Next<I>>;
   1: R;
