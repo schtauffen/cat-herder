@@ -75,7 +75,7 @@ interface IResources {
   someOtherResource?: ISomeOtherResource,
 }
 
-const world = World({ time: Date.now() }); 
+const world = World<IResources>({ time: Date.now() }); 
 ```
 
 ## Entities
