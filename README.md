@@ -23,8 +23,7 @@ const world = World({});
 
 world
   .register(Name)
-  .register(Velocity)
-  ;
+  .register(Velocity);
 
 // Entities
 const bob = world.entity()
@@ -118,7 +117,7 @@ Attempting to attach to an unknown entity will throw an error.
 ```ts
 const myEntity = world.entity().build();
 
-myEntity.add(Name, myEntity)("Roger");
+world.add(Name, myEntity)("Roger");
 ```
 ### get
 Returns given component for entity. Will return null if not found.  
