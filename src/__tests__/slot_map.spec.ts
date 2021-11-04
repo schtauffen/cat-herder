@@ -88,4 +88,37 @@ describe("SlotMap", () => {
     // Assert
     expect(result).toEqual([ "foo", "bar", "biz", "baz" ]);
   });
+
+  it('should allow items to be overwritten', () => {
+    // Arrange
+    const slot_map = SlotMap<string>();
+    slot_map.add("foo");
+    const key = slot_map.add("bar");
+    slot_map.add("biz");
+
+    // Act
+    const success = slot_map.set(key, "baz");
+    const result = [...slot_map];
+
+    // ASsert
+    expect(success).toBe(true);
+    expect(result).toEqual(["foo", "baz", "biz"]);
+  });
+
+  it('should fail to set removed key', () => {
+    // Arrange
+    const slot_map = SlotMap<string>();
+    slot_map.add("foo");
+    const key = slot_map.add("bar");
+    slot_map.add("biz");
+    slot_map.remove(key);
+
+    // Act
+    const success = slot_map.set(key, "baz");
+    const result = [...slot_map];
+
+    // ASsert
+    expect(success).toBe(false);
+    expect(result).toEqual(["foo", "biz"]);
+  });
 });

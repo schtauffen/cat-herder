@@ -7,8 +7,9 @@ export interface IKey {
 
 // TODO - implement iterator
 export interface ISlotMap<T> extends IterableIterator<T> {
-  get(key: IKey): T | undefined;
   add(item: T): IKey;
+  get(key: IKey): T | undefined;
+  set(key: IKey, item: T): boolean;
   remove(key: IKey): boolean;
 }
 
@@ -44,6 +45,16 @@ export function SlotMap<T>(): ISlotMap<T> {
         return undefined;
       }
       return data[internal_key.index];
+    },
+
+    set(key: IKey, item: T): boolean {
+      const internal_key = indices[key.index];
+      if (internal_key === undefined || key.generation !== internal_key.generation) {
+        return false;
+      }
+
+      data[internal_key.index] = item;
+      return true;
     },
 
     add(item: T) {
