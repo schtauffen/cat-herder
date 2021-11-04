@@ -73,4 +73,19 @@ describe("SlotMap", () => {
       8,
     ]);
   });
+
+  it("should be iterable", () => {
+    // Arrange
+    const slot_map = SlotMap<string>();
+    slot_map.add("foo");
+    slot_map.add("bar");
+    slot_map.add("biz");
+    slot_map.add("baz");
+
+    // Act
+    const result = [...slot_map];
+
+    // Assert
+    expect(result).toEqual([ "foo", "bar", "biz", "baz" ]);
+  });
 });

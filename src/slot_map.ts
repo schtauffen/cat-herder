@@ -1,10 +1,12 @@
+const INITIAL_SIZE = 8;
+
 export interface IKey {
   index: number;
   generation: number;
 }
 
 // TODO - implement iterator
-export interface ISlotMap<T> {
+export interface ISlotMap<T> extends IterableIterator<T> {
   get(key: IKey): T | undefined;
   add(item: T): IKey;
   remove(key: IKey): boolean;
@@ -28,9 +30,14 @@ export function SlotMap<T>(): ISlotMap<T> {
     capacity = n;
   }
 
-  grow_capacity(8);
+  grow_capacity(INITIAL_SIZE);
 
-  return {
+  return Object.assign(function* () {
+    // TODO - should warn or prevent editing while being accessed?
+    for (let index = 0; index < size; ++index) {
+      yield data[index]!;
+    }
+  }(), {
     get(key: IKey): T | undefined {
       const internal_key = indices[key.index];
       if (internal_key === undefined || key.generation !== internal_key.generation) {
@@ -71,5 +78,5 @@ export function SlotMap<T>(): ISlotMap<T> {
 
       return true;
     }
-  };
+  });
 }
