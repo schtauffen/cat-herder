@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { Entity, World, IWorld } from "../index";
+import { Entity, World, IWorld, ComponentFactory } from "../index";
 
 describe("Entity", () => {
   it("should throw error", () => {
@@ -189,15 +189,24 @@ describe("World", () => {
     });
 
     describe("query_iter", () => {
+      let A: ComponentFactory;
+      let B: ComponentFactory;
+
       beforeEach(() => {
+        A = () => ({});
+        B = () => ({});
+
         world.register(Name);
         world.register(Position);
         world.register(Velocity);
+        world.register(A);
+        world.register(B);
         world
           .entity()
           .with(Name)("Bob")
           .with(Position)(1, 2)
           .with(Velocity)(0, 2)
+          .with(A)()
           .build();
         world.entity().with(Name)("Roger").with(Position)(0, -1).build();
         world
@@ -205,6 +214,7 @@ describe("World", () => {
           .with(Name)("Tom")
           .with(Position)(-9, 3)
           .with(Velocity)(1, 1)
+          .with(B)()
           .build();
       });
 
@@ -218,7 +228,7 @@ describe("World", () => {
       });
 
       it("should allow negative searches", () => {
-        const result = world.query_iter(Name).not(Velocity).collect();
+        const result = world.query_iter(Name).not(A).not(B).collect();
 
         expect(result).toEqual([[{ name: "Roger" }]]);
       });

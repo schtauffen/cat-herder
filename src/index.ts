@@ -200,7 +200,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
             `#not() only expected to be called on pristine query.`,
           );
         }
-        hasnt = toBitset(without);
+        hasnt = toBitset(without).or(hasnt);
         return iterator;
       };
 
