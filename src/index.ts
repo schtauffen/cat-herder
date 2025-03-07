@@ -99,10 +99,10 @@ export interface IQueryBuilder<R> {
 const ZERO_BITSET = new BitSet();
 export function World<R = Record<string, any>>(resources: R): IWorld<R> {
   const componentIds = IdentityPool();
-  const entityIds = IdentityPool();
-  const componentsMap: Map<ComponentFactory, Component[]> = new Map();
+  const entityIds = IdentityPool(); // TODO - remove upon switch to SlotMap
+  const componentsMap: Map<ComponentFactory, Component[]> = new Map(); // TODO - ComponentFactory -> (number, Component[]) Map
   const componentsBit: Map<ComponentFactory, number> = new Map();
-  const entities: Map<number, BitSet> = new Map();
+  const entities: Map<number, BitSet> = new Map(); // TODO - switch to SlotMap
   const systems: System<R>[] = [];
 
   function toBitset(factories: ComponentFactory[]): BitSet {
@@ -178,20 +178,13 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
         }
       })();
 
-      // TODO - is there a native method for this?
       iterator.collect = () => {
         if (!pristine) {
           throw new Error(
             `#collect() only expected to be called on pristine query.`,
           );
         }
-        const result = [];
-
-        for (const r of iterator) {
-          result.push(r);
-        }
-
-        return result as unknown as ReturnTypes<T>[];
+        return [...iterator];
       };
 
       iterator.not = (...without: ComponentFactory[]) => {
@@ -216,7 +209,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
       let query: IQueryBuilder<ReturnTypes<T>[]>;
       return (query = {
         not(...factories) {
-          hasnt = toBitset(factories);
+          hasnt = toBitset(factories).or(hasnt);
           return query;
         },
 

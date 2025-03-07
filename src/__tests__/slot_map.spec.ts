@@ -1,4 +1,4 @@
-import { SlotMap } from "../slot_map";
+import { IKey, SlotMap } from "../slot_map";
 
 describe("SlotMap", () => {
   it("should store items", () => {
@@ -35,8 +35,8 @@ describe("SlotMap", () => {
 
   it("should reuse indices", () => {
     // Arrange
-    const slot_map = SlotMap();
-    const keys = [];
+    const slot_map = SlotMap<number>();
+    const keys: IKey[] = [];
     for (let idx = 0; idx < 8; idx++) {
       keys[idx] = slot_map.add(idx);
     }
@@ -44,9 +44,10 @@ describe("SlotMap", () => {
     // Act
     slot_map.remove(keys[1]);
     keys[8] = slot_map.add(8);
-    const results = [];
+    const results: number[] = [];
     for (let idx = 0; idx < 9; ++idx) {
-      results[idx] = slot_map.get(keys[idx]);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      results[idx] = slot_map.get(keys[idx])!;
     }
 
     // Assert
@@ -61,17 +62,7 @@ describe("SlotMap", () => {
       { index: 7, generation: 1 },
       { index: 1, generation: 2 },
     ]);
-    expect(results).toEqual([
-      0,
-      undefined,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-    ]);
+    expect(results).toEqual([0, undefined, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it("should be iterable", () => {
@@ -86,10 +77,10 @@ describe("SlotMap", () => {
     const result = [...slot_map];
 
     // Assert
-    expect(result).toEqual([ "foo", "bar", "biz", "baz" ]);
+    expect(result).toEqual(["foo", "bar", "biz", "baz"]);
   });
 
-  it('should allow items to be overwritten', () => {
+  it("should allow items to be overwritten", () => {
     // Arrange
     const slot_map = SlotMap<string>();
     slot_map.add("foo");
@@ -105,7 +96,7 @@ describe("SlotMap", () => {
     expect(result).toEqual(["foo", "baz", "biz"]);
   });
 
-  it('should fail to set removed key', () => {
+  it("should fail to set removed key", () => {
     // Arrange
     const slot_map = SlotMap<string>();
     slot_map.add("foo");

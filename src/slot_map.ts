@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 const INITIAL_SIZE = 8;
 
 export interface IKey {
@@ -5,7 +6,6 @@ export interface IKey {
   generation: number;
 }
 
-// TODO - implement iterator
 export interface ISlotMap<T> extends IterableIterator<T> {
   add(item: T): IKey;
   get(key: IKey): T | undefined;
@@ -33,61 +33,73 @@ export function SlotMap<T>(): ISlotMap<T> {
 
   grow_capacity(INITIAL_SIZE);
 
-  return Object.assign(function* () {
-    // TODO - should warn or prevent editing while being accessed?
-    for (let index = 0; index < size; ++index) {
-      yield data[index]!;
-    }
-  }(), {
-    get(key: IKey): T | undefined {
-      const internal_key = indices[key.index];
-      if (internal_key === undefined || key.generation !== internal_key.generation) {
-        return undefined;
+  return Object.assign(
+    (function* () {
+      // TODO - should warn or prevent editing while being accessed?
+      for (let index = 0; index < size; ++index) {
+        yield data[index]!;
       }
-      return data[internal_key.index];
+    })(),
+    {
+      get(key: IKey): T | undefined {
+        const internal_key = indices[key.index];
+        if (
+          internal_key === undefined ||
+          key.generation !== internal_key.generation
+        ) {
+          return undefined;
+        }
+        return data[internal_key.index];
+      },
+
+      set(key: IKey, item: T): boolean {
+        const internal_key = indices[key.index];
+        if (
+          internal_key === undefined ||
+          key.generation !== internal_key.generation
+        ) {
+          return false;
+        }
+
+        data[internal_key.index] = item;
+        return true;
+      },
+
+      add(item: T) {
+        if (free.length === 0) {
+          grow_capacity(2 * capacity);
+        }
+
+        const slot = free.shift()!;
+        const internal_key = indices[slot];
+        internal_key.index = size;
+        data[size] = item;
+        erase[size] = slot;
+        size += 1;
+
+        return { index: slot, generation: internal_key.generation };
+      },
+
+      remove(key: IKey): boolean {
+        const internal_key = indices[key.index];
+        if (
+          internal_key === undefined ||
+          key.generation !== internal_key.generation
+        ) {
+          return false;
+        }
+
+        internal_key.generation += 1;
+        const del_idx = internal_key.index;
+        data[del_idx] = data[size - 1];
+        data[size - 1] = undefined;
+        const idx = (erase[del_idx] = erase[size - 1]);
+        indices[idx].index = key.index;
+        free.push(internal_key.index);
+        size -= 1;
+
+        return true;
+      },
     },
-
-    set(key: IKey, item: T): boolean {
-      const internal_key = indices[key.index];
-      if (internal_key === undefined || key.generation !== internal_key.generation) {
-        return false;
-      }
-
-      data[internal_key.index] = item;
-      return true;
-    },
-
-    add(item: T) {
-      if (free.length === 0) {
-        grow_capacity(2 * capacity);
-      }
-
-      const slot = free.shift()!;
-      const internal_key = indices[slot];
-      internal_key.index = size;
-      data[size] = item;
-      erase[size] = slot;
-      size += 1;
-
-      return  { index: slot, generation: internal_key.generation };
-    },
-
-    remove(key: IKey): boolean {
-      const internal_key = indices[key.index];
-      if (internal_key === undefined || key.generation !== internal_key.generation) {
-        return false;
-      }
-
-      internal_key.generation += 1;
-      const del_idx = internal_key.index;
-      data[del_idx] = data[size - 1];
-      data[size - 1] = undefined;
-      const idx = erase[del_idx] = erase[size - 1];
-      indices[idx].index = key.index;
-      free.push(internal_key.index);
-      size -= 1;
-
-      return true;
-    }
-  });
+  );
 }
