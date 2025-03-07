@@ -251,7 +251,7 @@ describe("World", () => {
       });
 
       it("should be iterable", () => {
-        const result = [];
+        const result: string[] = [];
 
         for (const [name] of world.query_iter(Name)) {
           result.push(name.name);
