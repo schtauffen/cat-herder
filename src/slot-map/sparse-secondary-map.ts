@@ -1,27 +1,27 @@
-import type { IKey, ISecondaryMap } from "./slot_map";
+import type {Key, SecondaryMap} from './slot-map.js';
 
-type ISlot<T> = {
+type Slot<T> = {
   generation: number;
   value: T;
 };
 
-export class SparseSecondaryMap<T> implements ISecondaryMap<T> {
-  _slots = new Map<number, ISlot<T>>();
+export class SparseSecondaryMap<T> implements SecondaryMap<T> {
+  _slots = new Map<number, Slot<T>>();
 
-  *[Symbol.iterator]() {
+  * [Symbol.iterator]() {
     for (const slot of this._slots.values()) {
       yield slot.value;
     }
   }
 
-  public set(key: IKey, value: T): T | undefined {
+  public set(key: Key, value: T): T | undefined {
     let slot = this._slots.get(key.index);
     if (slot !== undefined && key.generation < slot.generation) {
       return undefined;
     }
 
     if (slot === undefined) {
-      slot = { generation: key.generation, value };
+      slot = {generation: key.generation, value};
       this._slots.set(key.index, slot);
       return undefined;
     }
@@ -37,12 +37,12 @@ export class SparseSecondaryMap<T> implements ISecondaryMap<T> {
     return undefined;
   }
 
-  public has(key: IKey): boolean {
+  public has(key: Key): boolean {
     const slot = this._slots.get(key.index);
     return slot !== undefined && slot.generation === key.generation;
   }
 
-  public get(key: IKey): T | undefined {
+  public get(key: Key): T | undefined {
     const slot = this._slots.get(key.index);
     if (slot === undefined || slot.generation !== key.generation) {
       return undefined;
@@ -51,7 +51,7 @@ export class SparseSecondaryMap<T> implements ISecondaryMap<T> {
     return slot.value;
   }
 
-  public remove(key: IKey): T | undefined {
+  public remove(key: Key): T | undefined {
     const slot = this._slots.get(key.index);
     if (slot === undefined || slot.generation !== key.generation) {
       return undefined;

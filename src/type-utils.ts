@@ -1,13 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// source: https://medium.com/free-code-camp/typescript-curry-ramda-types-f747e99744ab
-export type Length<T extends any[]> = T["length"];
+/* eslint-disable @typescript-eslint/ban-types */
+
+// Source: https://medium.com/free-code-camp/typescript-curry-ramda-types-f747e99744ab
+export type Length<T extends any[]> = T['length'];
 
 export type Cast<X, Y> = X extends Y ? X : Y;
 
 export type Prepend<E, T extends any[]> = ((
   head: E,
-  ...args: T
-) => any) extends (...args: infer U) => any
+  ...arguments_: T
+) => any) extends (...arguments_: infer U) => any
   ? U
   : T;
 
