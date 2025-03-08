@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { Entity, World, IWorld, ComponentFactory } from "../index";
+import { Entity, World, IWorld, ComponentFactory, Tag } from "../index";
 
 describe("Entity", () => {
   it("should throw error", () => {
@@ -69,6 +69,7 @@ describe("World", () => {
     const Name = (name: string) => ({ name });
     const Position = (x: number, y: number) => ({ x, y });
     const Velocity = (vx: number, vy: number) => ({ vx, vy });
+    const MyTag = Tag();
     let world: IWorld;
 
     beforeEach(() => {
@@ -91,6 +92,13 @@ describe("World", () => {
         const result = world.get(Name, entity);
 
         expect(result!.name).toEqual("Tom");
+      });
+
+      it("should return null for tag components", () => {
+        world.register(MyTag);
+        const entity = world.entity().with(MyTag)().build();
+
+        expect(world.get(MyTag, entity)).toEqual(null);
       });
 
       it("should return null if entity doesn't have component", () => {
@@ -192,8 +200,8 @@ describe("World", () => {
       let B: ComponentFactory;
 
       beforeEach(() => {
-        A = () => ({});
-        B = () => ({});
+        A = Tag();
+        B = Tag();
 
         world.register(Name);
         world.register(Position);
@@ -230,6 +238,12 @@ describe("World", () => {
         const result = world.query_iter(Name).not(A).not(B).collect();
 
         expect(result).toEqual([[{ name: "Roger" }]]);
+      });
+
+      it("should return true for positive tag matches", () => {
+        const result = world.query_iter(A).collect();
+
+        expect(result).toEqual([[true]]);
       });
 
       it("should return entities when requested", () => {
