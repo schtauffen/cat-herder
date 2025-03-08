@@ -4,6 +4,7 @@ import type { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
 import { IdentityPool } from "./identity";
 import { IKey, SlotMap, ISecondaryMap } from "./slot_map/slot_map";
 import { SecondaryMap } from "./slot_map/secondary_map";
+import { ZeroStoreMap } from "./slot_map/zero_store_map";
 
 type ISecondaryMapConstructor<T> = {
   new (): ISecondaryMap<T>;
@@ -35,17 +36,30 @@ type ReturnTypes<T extends ComponentFactory[]> = ReturnTypesInternal<
 //    -> with(Name(...args))
 //    also lets us go back to using an integer with array instead of Map<ComponentFactory, ..>
 // TODO - allow selection of Array or Map for speed characteristics?
+const ENTITY_ATTR = "@@entity";
+const TAG_ATTR = "@@tag";
+
 export type Component = Record<string, any>;
 export interface ComponentFactory {
   (...args: any): Component;
+
+  [TAG_ATTR]?: boolean;
+  [ENTITY_ATTR]?: boolean;
 }
 
-// TODO - allow tag components to not require storing data in array
-export const Tag: () => ComponentFactory = () => () => ({});
+const zeroStoreMap = new ZeroStoreMap();
 
-export function Entity(): { "@@entity": true } {
-  throw new Error("Construct entities with World#entity()");
-}
+// TODO - determine if the no-op store is Ok or if more !factory[TAG_ATTR] is prudent
+export const Tag: () => ComponentFactory = function Tag() {
+  return Object.assign(() => ({}), { [TAG_ATTR]: true });
+};
+
+export const Entity = Object.assign(
+  function Entity(): never {
+    throw new Error("Construct entities with World#entity()");
+  },
+  { [ENTITY_ATTR]: true },
+);
 
 export type System<R> = (world: IWorld<R>) => void;
 
@@ -121,7 +135,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
     const bitset = new BitSet();
 
     for (const factory of factories) {
-      if (factory === Entity) {
+      if (factory[ENTITY_ATTR]) {
         continue;
       }
 
@@ -147,7 +161,9 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
       secondaryType: ISecondaryMapConstructor<T> = SecondaryMap,
     ) {
       let secondary: ISecondaryMap<T>;
-      if (secondaryType.with_capacity !== undefined) {
+      if (factory[TAG_ATTR]) {
+        secondary = zeroStoreMap as ISecondaryMap<T>;
+      } else if (secondaryType.with_capacity !== undefined) {
         secondary = secondaryType.with_capacity(entities.size());
       } else {
         secondary = new SecondaryMap();
@@ -188,11 +204,13 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
           ) {
             const result = new Array(factories.length);
             for (const [idx, factory] of factories.entries()) {
-              result[idx] =
-                factory === Entity
-                  ? entity
-                  : // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    componentsMap.get(factory)!.get(entity);
+              if (factory[ENTITY_ATTR]) {
+                result[idx] = entity;
+              } else if (factory[TAG_ATTR]) {
+                result[idx] = true;
+              } else {
+                result[idx] = componentsMap.get(factory)?.get(entity);
+              }
             }
             yield result;
           }
@@ -246,11 +264,13 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
             ) {
               const result = new Array(factories.length);
               for (const [idx, factory] of factories.entries()) {
-                result[idx] =
-                  factory === Entity
-                    ? entity
-                    : // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                      componentsMap.get(factory)!.get(entity);
+                if (factory[ENTITY_ATTR]) {
+                  result[idx] = entity;
+                } else if (factory[TAG_ATTR]) {
+                  result[idx] = true;
+                } else {
+                  result[idx] = componentsMap.get(factory)?.get(entity);
+                }
               }
               results.push(result);
             }
