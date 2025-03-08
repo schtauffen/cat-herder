@@ -2,6 +2,13 @@
 import BitSet from "bitset";
 import type { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
 import { IdentityPool } from "./identity";
+import { IKey, SlotMap, ISecondaryMap } from "./slot_map/slot_map";
+import { SecondaryMap } from "./slot_map/secondary_map";
+
+type ISecondaryMapConstructor<T> = {
+  new (): ISecondaryMap<T>;
+  with_capacity?(capacity: number): ISecondaryMap<T>;
+};
 
 type QueryResult<T extends ComponentFactory> = T extends typeof Entity
   ? number
@@ -46,23 +53,26 @@ export type System<R> = (world: IWorld<R>) => void;
 //    Resources ✓
 //    Entities ✓
 //    Components ✓
-//    Systems // TODO - evaluate parrallel execution in the future
+//    Systems // TODO - evaluate parrallel execution, scheduling in the future
 export interface IWorld<R = Record<string, any>> {
   // Entities
   entity(): IEntityBuilder;
-  delete(entity: number): void;
+  delete(entity: IKey): void;
 
   // Components
-  register(factory: ComponentFactory): IWorld<R>;
+  register<T extends ComponentFactory>(
+    factory: T,
+    secondary?: ISecondaryMapConstructor<T>,
+  ): IWorld<R>;
   get<T extends ComponentFactory>(
     factory: T,
-    entity: number,
+    entity: IKey,
   ): ReturnType<T> | null;
   add<T extends ComponentFactory>(
     factory: T,
-    entity: number,
+    entity: IKey,
   ): BoundFactory<void, T>;
-  remove(factory: ComponentFactory, entity: number): void;
+  remove(factory: ComponentFactory, entity: IKey): void;
   query_iter<T extends ComponentFactory[]>(
     ...factories: T
   ): IQuery<ReturnTypes<T>>;
@@ -83,7 +93,7 @@ export type BoundFactory<R, T extends ComponentFactory> = (
 
 export interface IEntityBuilder {
   with<T extends ComponentFactory>(factory: T): BoundFactory<IEntityBuilder, T>;
-  build(): number;
+  build(): IKey;
 }
 
 export interface IQuery<R> extends IterableIterator<R> {
@@ -99,10 +109,12 @@ export interface IQueryBuilder<R> {
 const ZERO_BITSET = new BitSet();
 export function World<R = Record<string, any>>(resources: R): IWorld<R> {
   const componentIds = IdentityPool();
-  const entityIds = IdentityPool(); // TODO - remove upon switch to SlotMap
-  const componentsMap: Map<ComponentFactory, Component[]> = new Map(); // TODO - ComponentFactory -> (number, Component[]) Map
+  const componentsMap: Map<
+    ComponentFactory,
+    ISecondaryMap<unknown>
+  > = new Map();
   const componentsBit: Map<ComponentFactory, number> = new Map();
-  const entities: Map<number, BitSet> = new Map(); // TODO - switch to SlotMap
+  const entities = SlotMap<BitSet>();
   const systems: System<R>[] = [];
 
   function toBitset(factories: ComponentFactory[]): BitSet {
@@ -130,13 +142,22 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
   return (world = {
     resources,
 
-    register(factory: ComponentFactory) {
-      componentsMap.set(factory, []);
+    register<T extends ComponentFactory>(
+      factory: T,
+      secondaryType: ISecondaryMapConstructor<T> = SecondaryMap,
+    ) {
+      let secondary: ISecondaryMap<T>;
+      if (secondaryType.with_capacity !== undefined) {
+        secondary = secondaryType.with_capacity(entities.size());
+      } else {
+        secondary = new SecondaryMap();
+      }
+      componentsMap.set(factory, secondary);
       componentsBit.set(factory, componentIds.get());
       return world as unknown as IWorld<R>;
     },
 
-    get<T extends ComponentFactory>(factory: T, entity: number) {
+    get<T extends ComponentFactory>(factory: T, entity: IKey) {
       const components = componentsMap.get(factory);
       if (components === undefined) {
         throw new TypeError(
@@ -144,7 +165,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
         );
       }
 
-      const component = components[entity];
+      const component = components.get(entity);
       return typeof component === "undefined"
         ? null
         : (component as ReturnType<T>);
@@ -171,7 +192,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
                 factory === Entity
                   ? entity
                   : // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    componentsMap.get(factory)![entity];
+                    componentsMap.get(factory)!.get(entity);
             }
             yield result;
           }
@@ -217,6 +238,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
         // TODO - might not need #result/lazy() call if we implement Iterator for QueryBuilder?
         result() {
           const results: any[] = [];
+
           for (const [entity, bitset] of entities.entries()) {
             if (
               has.and(bitset).equals(has) &&
@@ -228,7 +250,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
                   factory === Entity
                     ? entity
                     : // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                      componentsMap.get(factory)![entity];
+                      componentsMap.get(factory)!.get(entity);
               }
               results.push(result);
             }
@@ -252,10 +274,9 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
         },
 
         build() {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          const entity = entityIds.get();
-
           const entityMask = new BitSet();
+          const entity = entities.add(entityMask);
+
           for (const [factory, args] of parts) {
             const bit = componentsBit.get(factory);
             const components = componentsMap.get(factory);
@@ -265,10 +286,10 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
               );
             }
 
-            components[entity] = factory(...args);
+            components.set(entity, factory(...args));
             entityMask.set(bit, 1);
           }
-          entities.set(entity, entityMask);
+
           return entity;
         },
       });
@@ -276,7 +297,7 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
 
     add<T extends ComponentFactory>(
       factory: T,
-      entity: number,
+      entity: IKey,
     ): BoundFactory<void, T> {
       return (...args: Parameters<T>) => {
         const entityMask = entities.get(entity);
@@ -292,12 +313,12 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
           );
         }
 
-        components[entity] = factory(...(args as any)); // TODO - why is this cast to any needed?
+        components.set(entity, factory(...(args as any)));
         entityMask.set(bit, 1);
       };
     },
 
-    remove(factory: ComponentFactory, entity: number) {
+    remove(factory: ComponentFactory, entity: IKey) {
       const bit = componentsBit.get(factory);
       const components = componentsMap.get(factory);
       if (bit === undefined || components === undefined) {
@@ -313,27 +334,26 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
         );
       }
 
-      delete components[entity];
+      components.remove(entity);
       entityMask.set(bit, 0);
     },
 
-    delete(entity: number) {
-      const entityMask = entities.get(entity);
-      if (!entityMask) {
-        return;
-      }
+    delete(entity: IKey) {
+      // Can just be overwritten lazily for now with SlotMaps
+      // const entityMask = entities.get(entity);
+      // if (!entityMask) {
+      //   return;
+      // }
 
-      // TODO - would get cleaned up by transition to number id'd components
       // TODO - delay and batch?
-      const toDelete = entityMask.toArray();
-      for (const [factory, bit] of componentsBit.entries()) {
-        if (toDelete.indexOf(bit) !== -1) {
-          world.remove(factory, entity);
-        }
-      }
+      // const toDelete = entityMask.toArray();
+      // for (const [factory, bit] of componentsBit.entries()) {
+      //   if (toDelete.indexOf(bit) !== -1) {
+      //     world.remove(factory, entity);
+      //   }
+      // }
 
-      entities.delete(entity);
-      entityIds.retire(entity);
+      entities.remove(entity);
     },
 
     // TODO - scheduling? disabling?

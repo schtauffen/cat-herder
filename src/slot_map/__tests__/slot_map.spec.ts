@@ -80,6 +80,48 @@ describe("SlotMap", () => {
     expect(result).toEqual(["foo", "bar", "biz", "baz"]);
   });
 
+  describe("SlotMap#entries", () => {
+    it("should be iterable", () => {
+      // Arrange
+      const slot_map = SlotMap<string>();
+      const keys = [
+        slot_map.add("foo"),
+        slot_map.add("bar"),
+        slot_map.add("biz"),
+        slot_map.add("baz"),
+      ];
+      slot_map.remove(keys[1]);
+      slot_map.add("riz");
+      slot_map.remove(keys[3]);
+
+      // Act
+      const result = Array.from(slot_map.entries());
+
+      // Assert
+      expect(result).toEqual([
+        [{ generation: 1, index: 0 }, "foo"],
+        [{ generation: 1, index: 2 }, "biz"],
+        [{ generation: 1, index: 4 }, "riz"],
+      ]);
+    });
+  });
+
+  it("should not iterate over removed items", () => {
+    // Arrange
+    const slot_map = SlotMap<string>();
+    slot_map.add("foo");
+    const to_remove = slot_map.add("bar");
+    slot_map.add("biz");
+    slot_map.add("baz");
+    slot_map.remove(to_remove);
+
+    // Act
+    const result = [...slot_map];
+
+    // Assert
+    expect(result).toEqual(["foo", "baz", "biz"]);
+  });
+
   it("should allow items to be overwritten", () => {
     // Arrange
     const slot_map = SlotMap<string>();

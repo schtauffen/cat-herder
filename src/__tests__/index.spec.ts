@@ -21,9 +21,9 @@ describe("World", () => {
 
         const entity0 = world.entity().build();
         const entity1 = world.entity().build();
+        const result = world.query(Entity).result();
 
-        expect(entity0).toBe(0);
-        expect(entity1).toBe(1);
+        expect(result).toEqual([[entity0], [entity1]]);
       });
 
       it("should throw when given unregistered component", () => {
@@ -49,7 +49,6 @@ describe("World", () => {
         world.entity().with(Name)("Tom").build();
         world.delete(entity1);
 
-        expect(world.entity().build()).toEqual(entity1);
         expect(world.query(Name).result()).toEqual([
           [{ name: "Bob" }],
           [{ name: "Tom" }],
@@ -60,7 +59,7 @@ describe("World", () => {
         const world = World({});
 
         expect(() => {
-          world.delete(0);
+          world.delete({ generation: 99, index: 0 });
         }).not.toThrow();
       });
     });
@@ -141,7 +140,7 @@ describe("World", () => {
 
       it("should throw on unknown entity", () => {
         expect(() => {
-          world.add(Name, 77)("Bob");
+          world.add(Name, { generation: 99, index: 9 })("Bob");
         }).toThrowError("unknown entity");
       });
     });
@@ -176,14 +175,14 @@ describe("World", () => {
       it("should throw on unregistered component", () => {
         world.entity().build();
         expect(() => {
-          world.remove(Position, 0);
+          world.remove(Position, { generation: 1, index: 1 });
         }).toThrowError("unknown Component");
       });
 
       it("should throw on unknown entity", () => {
         world.register(Position);
         expect(() => {
-          world.remove(Position, 0);
+          world.remove(Position, { generation: 1, index: 1 });
         }).toThrowError("unknown entity");
       });
     });
@@ -237,9 +236,18 @@ describe("World", () => {
         const result = world.query_iter(Position, Entity).collect();
 
         expect(result).toEqual([
-          [{ x: 1, y: 2 }, 0],
-          [{ x: 0, y: -1 }, 1],
-          [{ x: -9, y: 3 }, 2],
+          [
+            { x: 1, y: 2 },
+            { generation: 1, index: 0 },
+          ],
+          [
+            { x: 0, y: -1 },
+            { generation: 1, index: 1 },
+          ],
+          [
+            { x: -9, y: 3 },
+            { generation: 1, index: 2 },
+          ],
         ]);
       });
 
@@ -320,9 +328,18 @@ describe("World", () => {
         const result = world.query(Position, Entity).result();
 
         expect(result).toEqual([
-          [{ x: 1, y: 2 }, 0],
-          [{ x: 0, y: -1 }, 1],
-          [{ x: -9, y: 3 }, 2],
+          [
+            { x: 1, y: 2 },
+            { generation: 1, index: 0 },
+          ],
+          [
+            { x: 0, y: -1 },
+            { generation: 1, index: 1 },
+          ],
+          [
+            { x: -9, y: 3 },
+            { generation: 1, index: 2 },
+          ],
         ]);
       });
 
