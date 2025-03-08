@@ -7,7 +7,7 @@ npm i cat-herder
 
 There is a umd build available:
 ```html
-<script src="https://unpkg.com/cat-herder@latest/dist/cat-herder.umd.js"></script>
+<script src="https://unpkg.com/cat-herder@latest/dist/cat-herder.js"></script>
 ```
 
 ## Usage
@@ -19,7 +19,7 @@ import { World, Entity } from 'cat-herder';
 const Name = (name: string) => ({ name });
 const Velocity = (vx: number, vy: number) => ({ vx, vy });
 
-const world = World({});
+const world = new World({});
 
 world
   .register(Name)
@@ -35,15 +35,15 @@ const roger = world.entity()
   .build();
 
 // Querying
-for (const [name] of world.query(Name).result()) {
+for (const [name] of world.query(Name).collect()) {
   console.log(name.name); // "Bob", "Roger"
 }
 
-for (const [name] of world.query(Name).not(Velocity).result()) {
+for (const [name] of world.query(Name).not(Velocity).collect()) {
   console.log(name.name); // "Bob"
 }
 
-for (const [name, velocity] of world.query(Name, Velocity).result()) {
+for (const [name, velocity] of world.query(Name, Velocity).collect()) {
   console.log(name.name); // "Roger"
   console.log(velocity); // { vx: 0, vy: 1 }
 }
@@ -60,7 +60,6 @@ for (const [name, velocity] of world.query(Name, Velocity).result()) {
     - [get](#get)
     - [remove](#remove)
     - [query](#query)
-    - [query_iter](#query_iter)
   - [Systems](#systems)
     - [system](#system)
     - [update](#update)
@@ -75,7 +74,7 @@ interface IResources {
   someOtherResource?: ISomeOtherResource,
 }
 
-const world = World<IResources>({ time: Date.now() }); 
+const world = new World<IResources>({ time: Date.now() }); 
 ```
 
 ## Entities
@@ -134,9 +133,21 @@ Attempting to remove from an unknown entity will throw an error.
 world.remove(Name, myEntity);
 ```
 ### query
-Returns results for all entities with matching components.  
-Will exclude any entities with components in the `not` clause.  
-You can retrieve entity by using the `Entity` component.  
+`Query`s accesses data lazily, so you can terminate lookups on demand.  
+Can call `.collect()` to access as array, or pass to `Array.from()`.   
+Will throw if `.collect()` or `.not()` are called after iteration has started.  
+
+```ts
+for (const [life] of world.query(Life, Ally)) {
+  if (life <= 0) {
+    world.resources.game_over = true;
+    break;
+  }
+}
+
+// to access as array
+const allies_count = world.query(Ally).collect().length;
+```
 ```ts
 import { Entity, World } from 'cat-herder';
 
@@ -168,28 +179,11 @@ const toad = world
 // oops, Luigi had an accident
 world.add(Dead, luigi);
 
-for (const [entity, name, pos] of world.query(Entity, Name, Position).not(Dead).result()) {
+for (const [entity, name, pos] of world.query(Entity, Name, Position).not(Dead)) {
   // Contains valid type hints in TS
   console.log(name.name); // Mario ; Toad
   console.log(`${pos.x}, ${pos.y}`); // 10, 10 ; 15 , 10
 }
-```
-### query_iter
-Experimental version of query which doesn't require the `.result()` call before iteration.  
-It accesses data lazily, so you can terminate lookups on demand.  
-Must call `.collect()` to access as array.  
-Will throw if `.collect()` or `.not()` are called after iteration has started.  
-
-```ts
-for (const [life] of world.query_iter(Life, Ally)) {
-  if (life <= 0) {
-    world.resources.game_over = true;
-    break;
-  }
-}
-
-// to access as array
-const allies_count = world.query_iter(Ally).collect().length;
 ```
 
 ## Systems
@@ -203,10 +197,7 @@ import { System, Resource } from "cat-herder";
 function movementSystem(world: IWorld) {
   const { time } = world.resources;
 
-  for (
-    const [pos, vel] of
-    world.query(Position, Velocity).result()
-  ) {
+  for (const [pos, vel] of world.query(Position, Velocity)) {
     pos.x += vel.vx * time.elapsed;
     pos.y += vel.vy * time.elapsed;
   }
