@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { Entity, World, IWorld } from "../index";
+import { Entity, World, IWorld, ComponentFactory } from "../index";
 
 describe("Entity", () => {
   it("should throw error", () => {
@@ -21,9 +21,9 @@ describe("World", () => {
 
         const entity0 = world.entity().build();
         const entity1 = world.entity().build();
+        const result = world.query(Entity).result();
 
-        expect(entity0).toBe(0);
-        expect(entity1).toBe(1);
+        expect(result).toEqual([[entity0], [entity1]]);
       });
 
       it("should throw when given unregistered component", () => {
@@ -49,7 +49,6 @@ describe("World", () => {
         world.entity().with(Name)("Tom").build();
         world.delete(entity1);
 
-        expect(world.entity().build()).toEqual(entity1);
         expect(world.query(Name).result()).toEqual([
           [{ name: "Bob" }],
           [{ name: "Tom" }],
@@ -60,7 +59,7 @@ describe("World", () => {
         const world = World({});
 
         expect(() => {
-          world.delete(0);
+          world.delete({ generation: 99, index: 0 });
         }).not.toThrow();
       });
     });
@@ -141,7 +140,7 @@ describe("World", () => {
 
       it("should throw on unknown entity", () => {
         expect(() => {
-          world.add(Name, 77)("Bob");
+          world.add(Name, { generation: 99, index: 9 })("Bob");
         }).toThrowError("unknown entity");
       });
     });
@@ -176,28 +175,37 @@ describe("World", () => {
       it("should throw on unregistered component", () => {
         world.entity().build();
         expect(() => {
-          world.remove(Position, 0);
+          world.remove(Position, { generation: 1, index: 1 });
         }).toThrowError("unknown Component");
       });
 
       it("should throw on unknown entity", () => {
         world.register(Position);
         expect(() => {
-          world.remove(Position, 0);
+          world.remove(Position, { generation: 1, index: 1 });
         }).toThrowError("unknown entity");
       });
     });
 
     describe("query_iter", () => {
+      let A: ComponentFactory;
+      let B: ComponentFactory;
+
       beforeEach(() => {
+        A = () => ({});
+        B = () => ({});
+
         world.register(Name);
         world.register(Position);
         world.register(Velocity);
+        world.register(A);
+        world.register(B);
         world
           .entity()
           .with(Name)("Bob")
           .with(Position)(1, 2)
           .with(Velocity)(0, 2)
+          .with(A)()
           .build();
         world.entity().with(Name)("Roger").with(Position)(0, -1).build();
         world
@@ -205,6 +213,7 @@ describe("World", () => {
           .with(Name)("Tom")
           .with(Position)(-9, 3)
           .with(Velocity)(1, 1)
+          .with(B)()
           .build();
       });
 
@@ -218,7 +227,7 @@ describe("World", () => {
       });
 
       it("should allow negative searches", () => {
-        const result = world.query_iter(Name).not(Velocity).collect();
+        const result = world.query_iter(Name).not(A).not(B).collect();
 
         expect(result).toEqual([[{ name: "Roger" }]]);
       });
@@ -227,9 +236,18 @@ describe("World", () => {
         const result = world.query_iter(Position, Entity).collect();
 
         expect(result).toEqual([
-          [{ x: 1, y: 2 }, 0],
-          [{ x: 0, y: -1 }, 1],
-          [{ x: -9, y: 3 }, 2],
+          [
+            { x: 1, y: 2 },
+            { generation: 1, index: 0 },
+          ],
+          [
+            { x: 0, y: -1 },
+            { generation: 1, index: 1 },
+          ],
+          [
+            { x: -9, y: 3 },
+            { generation: 1, index: 2 },
+          ],
         ]);
       });
 
@@ -241,7 +259,7 @@ describe("World", () => {
       });
 
       it("should be iterable", () => {
-        const result = [];
+        const result: string[] = [];
 
         for (const [name] of world.query_iter(Name)) {
           result.push(name.name);
@@ -310,9 +328,18 @@ describe("World", () => {
         const result = world.query(Position, Entity).result();
 
         expect(result).toEqual([
-          [{ x: 1, y: 2 }, 0],
-          [{ x: 0, y: -1 }, 1],
-          [{ x: -9, y: 3 }, 2],
+          [
+            { x: 1, y: 2 },
+            { generation: 1, index: 0 },
+          ],
+          [
+            { x: 0, y: -1 },
+            { generation: 1, index: 1 },
+          ],
+          [
+            { x: -9, y: 3 },
+            { generation: 1, index: 2 },
+          ],
         ]);
       });
 
