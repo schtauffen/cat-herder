@@ -1,20 +1,12 @@
-interface IIdentityPool {
-  get(): number;
-  retire(id: number): void;
-}
+export class IdentityPool implements IdentityPool {
+  private _id = 0;
+  private readonly _retired: number[] = [];
 
-export function IdentityPool(): IIdentityPool {
-  let id = 0;
-  const retired: number[] = [];
+  get() {
+    return this._retired.length > 0 ? this._retired.shift()! : this._id++;
+  }
 
-  return {
-    get() {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return retired.length > 0 ? retired.shift()! : id++;
-    },
-
-    retire(id: number) {
-      retired.push(id);
-    },
-  };
+  retire(id: number) {
+    this._retired.push(id);
+  }
 }

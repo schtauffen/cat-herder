@@ -1,18 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import BitSet from "bitset";
-import type { Cast, Prepend, Pos, Reverse, Length, Next } from "./type-utils";
-import { IdentityPool } from "./identity";
-import { IKey, SlotMap, ISecondaryMap } from "./slot_map/slot_map";
-import { SecondaryMap } from "./slot_map/secondary_map";
-import { ZeroStoreMap } from "./slot_map/zero_store_map";
+/* eslint-disable @typescript-eslint/ban-types */
 
-type ISecondaryMapConstructor<T> = {
-  new (): ISecondaryMap<T>;
-  with_capacity?(capacity: number): ISecondaryMap<T>;
+import {BitSet} from 'bitset';
+import type {
+  Cast, Prepend, Pos, Reverse, Length, Next,
+} from './type-utils.js';
+import {IdentityPool} from './identity.js';
+import {type Key, SlotMap, type SecondaryMap as SecondaryMapType} from './slot-map/slot-map.js';
+import {SecondaryMap} from './slot-map/secondary-map.js';
+import {ZeroStoreMap} from './slot-map/zero-store-map.js';
+import {bindAllMethods} from './util/bind-all-methods.js';
+
+const entityAttribute = '@@entity';
+const tagAttribute = '@@tag';
+
+type SecondaryMapConstructor<T> = {
+  new (): SecondaryMap<T>;
+  withCapacity?(capacity: number): SecondaryMapType<T>;
 };
 
-type QueryResult<T extends ComponentFactory> = T extends typeof Entity
-  ? number
+type QueryResult<T extends ComponentFactory> = T extends {[entityAttribute]: true}
+  ? Key
   : ReturnType<T>;
 
 type ReturnTypesInternal<
@@ -25,122 +32,170 @@ type ReturnTypesInternal<
 }[Pos<I> extends Length<T> ? 1 : 0];
 
 type ReturnTypes<T extends ComponentFactory[]> = ReturnTypesInternal<
-  Reverse<T> extends infer U ? Cast<U, any[]> : never,
-  [],
-  []
+Reverse<T> extends infer U ? Cast<U, any[]> : never
 >;
 
-// TODO - also allow classes
-// TODO - more ergonomic handling (instead of .with(Name)(...args))
-//    export const Component = component(() => {...}) ??
+// TODO
+// - allow classes
+// - more ergonomic handling (instead of .with(Name)(...args))
+// - export const Component = component(() => {...}) ??
 //    -> with(Name(...args))
-//    also lets us go back to using an integer with array instead of Map<ComponentFactory, ..>
-// TODO - allow selection of Array or Map for speed characteristics?
-const ENTITY_ATTR = "@@entity";
-const TAG_ATTR = "@@tag";
-
-export type Component = Record<string, any>;
-export interface ComponentFactory {
-  (...args: any): Component;
-
-  [TAG_ATTR]?: boolean;
-  [ENTITY_ATTR]?: boolean;
-}
-
-const zeroStoreMap = new ZeroStoreMap();
-
-// TODO - determine if the no-op store is Ok or if more !factory[TAG_ATTR] is prudent
-export const Tag: () => ComponentFactory = function Tag() {
-  return Object.assign(() => ({}), { [TAG_ATTR]: true });
-};
-
-export const Entity = Object.assign(
-  function Entity(): never {
-    throw new Error("Construct entities with World#entity()");
-  },
-  { [ENTITY_ATTR]: true },
-);
-
-export type System<R> = (world: IWorld<R>) => void;
+//   lets us go back to using an integer with array instead of Map<ComponentFactory, ..>
+// - allow selection of Array or Map for speed characteristics?
+// - determine if the no-op store is Ok or if more !factory[tagAttribute] is prudent
 
 //  World
 //    Resources ✓
 //    Entities ✓
 //    Components ✓
-//    Systems // TODO - evaluate parrallel execution, scheduling in the future
-export interface IWorld<R = Record<string, any>> {
-  // Entities
-  entity(): IEntityBuilder;
-  delete(entity: IKey): void;
+//    Systems - evaluate parrallel execution, scheduling, disabling
 
-  // Components
-  register<T extends ComponentFactory>(
-    factory: T,
-    secondary?: ISecondaryMapConstructor<T>,
-  ): IWorld<R>;
-  get<T extends ComponentFactory>(
-    factory: T,
-    entity: IKey,
-  ): ReturnType<T> | null;
-  add<T extends ComponentFactory>(
-    factory: T,
-    entity: IKey,
-  ): BoundFactory<void, T>;
-  remove(factory: ComponentFactory, entity: IKey): void;
-  query_iter<T extends ComponentFactory[]>(
-    ...factories: T
-  ): IQuery<ReturnTypes<T>>;
-  query<T extends ComponentFactory[]>(
-    ...factories: T
-  ): IQueryBuilder<ReturnTypes<T>[]>;
+export type Component = Record<string, any>;
+export type ComponentFactory = {
+  (...arguments_: any): Component;
 
-  // Systems
-  system(sys: System<R>): IWorld<R>;
-  update(): void;
+  [tagAttribute]?: boolean;
+  [entityAttribute]?: boolean;
+};
 
-  resources: R;
+const zeroStoreMap = new ZeroStoreMap();
+
+export function createTag(): ComponentFactory {
+  return Object.assign(() => ({}), {[tagAttribute]: true});
 }
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const Entity = Object.assign(
+  (): never => {
+    throw new Error('Construct entities with World#entity()');
+  },
+  {[entityAttribute]: true},
+);
+
+export type System<R> = (world: World<R>) => void;
 
 export type BoundFactory<R, T extends ComponentFactory> = (
-  ...args: Parameters<T>
+  ...arguments_: Parameters<T>
 ) => R;
 
-export interface IEntityBuilder {
-  with<T extends ComponentFactory>(factory: T): BoundFactory<IEntityBuilder, T>;
-  build(): IKey;
+export class EntityBuilder<E = any> {
+  readonly #store: EcsStore<E>;
+  readonly #parts: Array<[ComponentFactory, any[]]> = [];
+
+  constructor(store: EcsStore<E>) {
+    this.#store = store;
+  }
+
+  with<T extends ComponentFactory>(factory: T): BoundFactory<this, T> {
+    return (...arguments_: Parameters<T>) => {
+      this.#parts.push([factory, arguments_]);
+      return this;
+    };
+  }
+
+  build(): Key {
+    const entityMask = new BitSet();
+    const entity = this.#store.entities.add(entityMask);
+
+    for (const [factory, arguments_] of this.#parts) {
+      const bit = this.#store.componentBits.get(factory);
+      const components = this.#store.componentsMap.get(factory);
+      if (bit === undefined || components === undefined) {
+        throw new TypeError(
+          `Attempted to add unknown Component to entity: ${factory.name}`,
+        );
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      components.set(entity, factory(...arguments_));
+      entityMask.set(bit, 1);
+    }
+
+    return entity;
+  }
 }
 
-export interface IQuery<R> extends IterableIterator<R> {
-  not(...factories: ComponentFactory[]): IQuery<R>;
-  collect(): R[];
+export class Query<R, E = any> implements Iterable<R> {
+  readonly #store: EcsStore<E>;
+  readonly #factories: ComponentFactory[];
+  readonly #has: BitSet;
+
+  #hasnt = new BitSet();
+  #pristine = true;
+
+  constructor(store: EcsStore<E>, factories: ComponentFactory[]) {
+    this.#store = store;
+    this.#factories = factories;
+    this.#has = store.factoriesToBitSet(factories);
+  }
+
+  * [Symbol.iterator]() {
+    this.#pristine = false;
+
+    for (const [entity, bitset] of this.#store.entities.entries()) {
+      if (
+        this.#has.and(bitset).equals(this.#has)
+          && this.#hasnt.and(bitset).equals(zeroBitSet)
+      ) {
+        const result = Array.from({length: this.#factories.length});
+        for (const [index, factory] of this.#factories.entries()) {
+          if (factory[entityAttribute]) {
+            result[index] = entity;
+          } else if (factory[tagAttribute]) {
+            result[index] = true;
+          } else {
+            result[index] = this.#store.componentsMap.get(factory)?.get(entity);
+          }
+        }
+
+        yield result as unknown as R;
+      }
+    }
+  }
+
+  not(...without: ComponentFactory[]): this {
+    if (!this.#pristine) {
+      throw new Error(
+        '#not() only expected to be called on pristine query.',
+      );
+    }
+
+    this.#hasnt = this.#store.factoriesToBitSet(without).or(this.#hasnt);
+    return this;
+  }
+
+  collect(): R[] {
+    if (!this.#pristine) {
+      throw new Error(
+        '#collect() only expected to be called on pristine query.',
+      );
+    }
+
+    return [...this];
+  }
 }
 
-export interface IQueryBuilder<R> {
-  not(...factories: ComponentFactory[]): IQueryBuilder<R>;
-  result(): R;
-}
+class EcsStore<R> {
+  public entities = new SlotMap<BitSet>();
+  public componentIds = new IdentityPool();
+  public componentsMap = new Map<ComponentFactory, SecondaryMapType<unknown>>();
+  public componentBits = new Map<ComponentFactory, number>();
+  public systems: Array<System<R>> = [];
 
-const ZERO_BITSET = new BitSet();
-export function World<R = Record<string, any>>(resources: R): IWorld<R> {
-  const componentIds = IdentityPool();
-  const componentsMap: Map<
-    ComponentFactory,
-    ISecondaryMap<unknown>
-  > = new Map();
-  const componentsBit: Map<ComponentFactory, number> = new Map();
-  const entities = SlotMap<BitSet>();
-  const systems: System<R>[] = [];
+  constructor() {
+    bindAllMethods(this);
+  }
 
-  function toBitset(factories: ComponentFactory[]): BitSet {
+  public factoriesToBitSet(factories: ComponentFactory[]): BitSet {
     const bitset = new BitSet();
 
     for (const factory of factories) {
-      if (factory[ENTITY_ATTR]) {
+      if (factory[entityAttribute]) {
         continue;
       }
 
-      const bit = componentsBit.get(factory);
-      if (typeof bit === "undefined") {
+      const bit = this.componentBits.get(factory);
+      if (bit === undefined) {
         throw new TypeError(
           `Attempted to query unknown Component: ${factory.name}`,
         );
@@ -151,241 +206,140 @@ export function World<R = Record<string, any>>(resources: R): IWorld<R> {
 
     return bitset;
   }
+}
 
-  let world: IWorld<R>;
-  return (world = {
-    resources,
+const zeroBitSet = new BitSet();
 
-    register<T extends ComponentFactory>(
-      factory: T,
-      secondaryType: ISecondaryMapConstructor<T> = SecondaryMap,
-    ) {
-      let secondary: ISecondaryMap<T>;
-      if (factory[TAG_ATTR]) {
-        secondary = zeroStoreMap as ISecondaryMap<T>;
-      } else if (secondaryType.with_capacity !== undefined) {
-        secondary = secondaryType.with_capacity(entities.size());
-      } else {
-        secondary = new SecondaryMap();
+export class World<R = Record<string, unknown>> {
+  readonly #store = new EcsStore<R>();
+
+  constructor(public readonly resources: R) {
+    bindAllMethods(this);
+  }
+
+  /**
+   * Entity API
+   */
+  entity(): EntityBuilder {
+    return new EntityBuilder(this.#store);
+  }
+
+  delete(entity: Key): void {
+    // Can just be overwritten lazily for now with SlotMaps
+    // const entityMask = entities.get(entity);
+    // if (!entityMask) {
+    //   return;
+    // }
+
+    // TODO - delay and batch?
+    // const toDelete = entityMask.toArray();
+    // for (const [factory, bit] of this.#componentBits.entries()) {
+    //   if (toDelete.indexOf(bit) !== -1) {
+    //     world.remove(factory, entity);
+    //   }
+    // }
+
+    this.#store.entities.remove(entity);
+  }
+
+  /**
+   * Component API
+   */
+  public register<T extends ComponentFactory>(
+    factory: T,
+    secondaryType: SecondaryMapConstructor<T> = SecondaryMap,
+  ): this {
+    let secondary: SecondaryMapType<T>;
+    if (factory[tagAttribute]) {
+      secondary = zeroStoreMap as SecondaryMapType<T>;
+    } else if (secondaryType.withCapacity === undefined) {
+      secondary = new SecondaryMap();
+    } else {
+      secondary = secondaryType.withCapacity(this.#store.entities.size());
+    }
+
+    this.#store.componentsMap.set(factory, secondary);
+    this.#store.componentBits.set(factory, this.#store.componentIds.get());
+    return this;
+  }
+
+  get<T extends ComponentFactory>(factory: T, entity: Key): ReturnType<T> | null {
+    const components = this.#store.componentsMap.get(factory);
+    if (components === undefined) {
+      throw new TypeError(
+        `Attempted to get unknown Component: ${factory.name}`,
+      );
+    }
+
+    const component = components.get(entity);
+    return component === undefined
+      ? null
+      : (component as ReturnType<T>);
+  }
+
+  add<T extends ComponentFactory>(
+    factory: T,
+    entity: Key,
+  ): BoundFactory<this, T> {
+    return (...arguments_: Parameters<T>) => {
+      const entityMask = this.#store.entities.get(entity);
+      if (entityMask === undefined) {
+        throw new TypeError('Attempted to add Component to unknown entity.');
       }
-      componentsMap.set(factory, secondary);
-      componentsBit.set(factory, componentIds.get());
-      return world as unknown as IWorld<R>;
-    },
 
-    get<T extends ComponentFactory>(factory: T, entity: IKey) {
-      const components = componentsMap.get(factory);
-      if (components === undefined) {
-        throw new TypeError(
-          `Attempted to get unknown Component: ${factory.name}`,
-        );
-      }
-
-      const component = components.get(entity);
-      return typeof component === "undefined"
-        ? null
-        : (component as ReturnType<T>);
-    },
-
-    query_iter<T extends ComponentFactory[]>(
-      ...factories: T
-    ): IQuery<ReturnTypes<T>> {
-      const has = toBitset(factories);
-      let hasnt = new BitSet();
-      let pristine = true;
-
-      const iterator: any = (function* () {
-        pristine = false;
-
-        for (const [entity, bitset] of entities.entries()) {
-          if (
-            has.and(bitset).equals(has) &&
-            hasnt.and(bitset).equals(ZERO_BITSET)
-          ) {
-            const result = new Array(factories.length);
-            for (const [idx, factory] of factories.entries()) {
-              if (factory[ENTITY_ATTR]) {
-                result[idx] = entity;
-              } else if (factory[TAG_ATTR]) {
-                result[idx] = true;
-              } else {
-                result[idx] = componentsMap.get(factory)?.get(entity);
-              }
-            }
-            yield result;
-          }
-        }
-      })();
-
-      iterator.collect = () => {
-        if (!pristine) {
-          throw new Error(
-            `#collect() only expected to be called on pristine query.`,
-          );
-        }
-        return [...iterator];
-      };
-
-      iterator.not = (...without: ComponentFactory[]) => {
-        if (!pristine) {
-          throw new Error(
-            `#not() only expected to be called on pristine query.`,
-          );
-        }
-        hasnt = toBitset(without).or(hasnt);
-        return iterator;
-      };
-
-      return iterator as IQuery<ReturnTypes<T>>;
-    },
-
-    query<T extends ComponentFactory[]>(
-      ...factories: T
-    ): IQueryBuilder<ReturnTypes<T>[]> {
-      const has = toBitset(factories);
-      let hasnt = new BitSet();
-
-      let query: IQueryBuilder<ReturnTypes<T>[]>;
-      return (query = {
-        not(...factories) {
-          hasnt = toBitset(factories).or(hasnt);
-          return query;
-        },
-
-        // TODO - add lazy iterator: (lazy() ?)
-        // TODO - might not need #result/lazy() call if we implement Iterator for QueryBuilder?
-        result() {
-          const results: any[] = [];
-
-          for (const [entity, bitset] of entities.entries()) {
-            if (
-              has.and(bitset).equals(has) &&
-              hasnt.and(bitset).equals(ZERO_BITSET)
-            ) {
-              const result = new Array(factories.length);
-              for (const [idx, factory] of factories.entries()) {
-                if (factory[ENTITY_ATTR]) {
-                  result[idx] = entity;
-                } else if (factory[TAG_ATTR]) {
-                  result[idx] = true;
-                } else {
-                  result[idx] = componentsMap.get(factory)?.get(entity);
-                }
-              }
-              results.push(result);
-            }
-          }
-
-          return results as unknown as ReturnTypes<T>[];
-        },
-      });
-    },
-
-    entity() {
-      const parts: [any, any][] = [];
-      let builder: IEntityBuilder;
-
-      return (builder = {
-        with<T extends ComponentFactory>(factory: T) {
-          return function (...args: Parameters<T>) {
-            parts.push([factory, args]);
-            return builder;
-          };
-        },
-
-        build() {
-          const entityMask = new BitSet();
-          const entity = entities.add(entityMask);
-
-          for (const [factory, args] of parts) {
-            const bit = componentsBit.get(factory);
-            const components = componentsMap.get(factory);
-            if (bit === undefined || components === undefined) {
-              throw new TypeError(
-                `Attempted to add unknown Component to entity: ${factory.name}`,
-              );
-            }
-
-            components.set(entity, factory(...args));
-            entityMask.set(bit, 1);
-          }
-
-          return entity;
-        },
-      });
-    },
-
-    add<T extends ComponentFactory>(
-      factory: T,
-      entity: IKey,
-    ): BoundFactory<void, T> {
-      return (...args: Parameters<T>) => {
-        const entityMask = entities.get(entity);
-        if (entityMask === undefined) {
-          throw new TypeError(`Attempted to add Component to unknown entity.`);
-        }
-
-        const bit = componentsBit.get(factory);
-        const components = componentsMap.get(factory);
-        if (bit === undefined || components === undefined) {
-          throw new TypeError(
-            `Attempted to add unknown Component to entity: ${factory.name}`,
-          );
-        }
-
-        components.set(entity, factory(...(args as any)));
-        entityMask.set(bit, 1);
-      };
-    },
-
-    remove(factory: ComponentFactory, entity: IKey) {
-      const bit = componentsBit.get(factory);
-      const components = componentsMap.get(factory);
+      const bit = this.#store.componentBits.get(factory);
+      const components = this.#store.componentsMap.get(factory);
       if (bit === undefined || components === undefined) {
         throw new TypeError(
-          `Attempted to remove unknown Component: ${factory.name}`,
+          `Attempted to add unknown Component to entity: ${factory.name}`,
         );
       }
 
-      const entityMask = entities.get(entity);
-      if (entityMask === undefined) {
-        throw new TypeError(
-          `Attempted to remove Component from unknown entity.`,
-        );
-      }
+      components.set(entity, factory(...(arguments_)));
+      entityMask.set(bit, 1);
 
-      components.remove(entity);
-      entityMask.set(bit, 0);
-    },
+      return this;
+    };
+  }
 
-    delete(entity: IKey) {
-      // Can just be overwritten lazily for now with SlotMaps
-      // const entityMask = entities.get(entity);
-      // if (!entityMask) {
-      //   return;
-      // }
+  remove(factory: ComponentFactory, entity: Key): this {
+    const bit = this.#store.componentBits.get(factory);
+    const components = this.#store.componentsMap.get(factory);
+    if (bit === undefined || components === undefined) {
+      throw new TypeError(
+        `Attempted to remove unknown Component: ${factory.name}`,
+      );
+    }
 
-      // TODO - delay and batch?
-      // const toDelete = entityMask.toArray();
-      // for (const [factory, bit] of componentsBit.entries()) {
-      //   if (toDelete.indexOf(bit) !== -1) {
-      //     world.remove(factory, entity);
-      //   }
-      // }
+    const entityMask = this.#store.entities.get(entity);
+    if (entityMask === undefined) {
+      throw new TypeError(
+        'Attempted to remove Component from unknown entity.',
+      );
+    }
 
-      entities.remove(entity);
-    },
+    components.remove(entity);
+    entityMask.set(bit, 0);
+    return this;
+  }
 
-    // TODO - scheduling? disabling?
-    system(sys: System<R>): IWorld<R> {
-      systems.push(sys);
-      return world;
-    },
+  query<T extends ComponentFactory[]>(
+    ...factories: T
+  ): Query<ReturnTypes<T>> {
+    return new Query<ReturnTypes<T>>(this.#store, factories);
+  }
 
-    update(): void {
-      for (const sys of systems) {
-        sys(world);
-      }
-    },
-  } as IWorld<R>);
+  /**
+   * System API
+   */
+  system(system: System<R>): this {
+    this.#store.systems.push(system);
+    return this;
+  }
+
+  update(): void {
+    for (const system of this.#store.systems) {
+      system(this);
+    }
+  }
 }
