@@ -60,7 +60,7 @@ describe('SparseSecondaryMap', () => {
     ];
     const secondary = new SparseSecondaryMap<string>();
     for (const k of keys) {
-      secondary.set(k, slotMap.get(k)?.toUpperCase() ?? 'null');
+      secondary.set(k, slotMap.get(k)?.toUpperCase() ?? 'undefined');
     }
 
     secondary.remove(keys[1]);

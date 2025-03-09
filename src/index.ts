@@ -5,9 +5,9 @@ import type {
   Cast, Prepend, Pos, Reverse, Length, Next,
 } from './type-utils.js';
 import {IdentityPool} from './identity.js';
-import {type Key, SlotMap, type SecondaryMap as SecondaryMapType} from './slot-map/slot-map.js';
+import {type Key, SlotMap, type ComponentStore} from './slot-map/slot-map.js';
 import {SecondaryMap} from './slot-map/secondary-map.js';
-import {ZeroStoreMap} from './slot-map/zero-store-map.js';
+import {ZeroStore} from './slot-map/zero-store.js';
 import {bindAllMethods} from './util/bind-all-methods.js';
 
 const entityAttribute = '@@entity';
@@ -15,7 +15,7 @@ const tagAttribute = '@@tag';
 
 type SecondaryMapConstructor<T> = {
   new (): SecondaryMap<T>;
-  withCapacity?(capacity: number): SecondaryMapType<T>;
+  withCapacity?(capacity: number): ComponentStore<T>;
 };
 
 type QueryResult<T extends ComponentFactory> = T extends {[entityAttribute]: true}
@@ -58,7 +58,7 @@ export type ComponentFactory = {
   [entityAttribute]?: boolean;
 };
 
-const zeroStoreMap = new ZeroStoreMap();
+const zeroStore = new ZeroStore();
 
 export function createTag(): ComponentFactory {
   return Object.assign(() => ({}), {[tagAttribute]: true});
@@ -178,7 +178,7 @@ export class Query<R, E = any> implements Iterable<R> {
 class EcsStore<R> {
   public entities = new SlotMap<BitSet>();
   public componentIds = new IdentityPool();
-  public componentsMap = new Map<ComponentFactory, SecondaryMapType<unknown>>();
+  public componentsMap = new Map<ComponentFactory, ComponentStore<unknown>>();
   public componentBits = new Map<ComponentFactory, number>();
   public systems: Array<System<R>> = [];
 
@@ -249,9 +249,9 @@ export class World<R = Record<string, unknown>> {
     factory: T,
     secondaryType: SecondaryMapConstructor<T> = SecondaryMap,
   ): this {
-    let secondary: SecondaryMapType<T>;
+    let secondary: ComponentStore<T>;
     if (factory[tagAttribute]) {
-      secondary = zeroStoreMap as SecondaryMapType<T>;
+      secondary = zeroStore as ComponentStore<T>;
     } else if (secondaryType.withCapacity === undefined) {
       secondary = new SecondaryMap();
     } else {
@@ -263,7 +263,7 @@ export class World<R = Record<string, unknown>> {
     return this;
   }
 
-  get<T extends ComponentFactory>(factory: T, entity: Key): ReturnType<T> | null {
+  get<T extends ComponentFactory>(factory: T, entity: Key): ReturnType<T> | undefined {
     const components = this.#store.componentsMap.get(factory);
     if (components === undefined) {
       throw new TypeError(
@@ -271,10 +271,7 @@ export class World<R = Record<string, unknown>> {
       );
     }
 
-    const component = components.get(entity);
-    return component === undefined
-      ? null
-      : (component as ReturnType<T>);
+    return components.get(entity) as (ReturnType<T> | undefined);
   }
 
   add<T extends ComponentFactory>(

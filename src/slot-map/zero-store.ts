@@ -1,7 +1,7 @@
 
-import type {Key, SecondaryMap} from './slot-map.js';
+import type {Key, ComponentStore} from './slot-map.js';
 
-export class ZeroStoreMap implements SecondaryMap<unknown> {
+export class ZeroStore implements ComponentStore<unknown> {
   * [Symbol.iterator]() {
     // No-op
   }

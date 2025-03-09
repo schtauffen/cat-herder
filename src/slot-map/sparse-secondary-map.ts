@@ -1,11 +1,11 @@
-import type {Key, SecondaryMap} from './slot-map.js';
+import type {Key, ComponentStore} from './slot-map.js';
 
 type Slot<T> = {
   generation: number;
   value: T;
 };
 
-export class SparseSecondaryMap<T> implements SecondaryMap<T> {
+export class SparseSecondaryMap<T> implements ComponentStore<T> {
   _slots = new Map<number, Slot<T>>();
 
   * [Symbol.iterator]() {

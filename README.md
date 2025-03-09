@@ -2,12 +2,12 @@
 An ECS ([Entity Component System](https://en.wikipedia.org/wiki/Entity_component_system)) implementation written in TypeScript.  
 
 ```bash
-npm i cat-herder
+npm install cat-herder
 ```
 
 There is a umd build available:
 ```html
-<script src="https://unpkg.com/cat-herder@latest/dist/cat-herder.js"></script>
+<script src="https://unpkg.com/cat-herder@latest/dist/cat-herder.global.js"></script>
 ```
 
 ## Usage
@@ -119,7 +119,7 @@ const myEntity = world.entity().build();
 world.add(Name, myEntity)("Roger");
 ```
 ### get
-Returns given component for entity. Will return null if not found.  
+Returns given component for entity. Will return undefined if not found.  
 Attempting to retrieve an unregistered component will throw an error.  
 Attempting to retrieve from an unknown entity will throw an error.  
 ```ts
