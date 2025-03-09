@@ -86,6 +86,16 @@ export class SecondaryMap<T> implements ComponentStore<T> {
     return removed;
   }
 
+  public drain(): Iterable<[Key, T]> {
+    const values = this.#slots.splice(0);
+
+    return (function * () {
+      for (const [number, slot] of values.entries()) {
+        yield [{index: number, generation: slot.generation}, slot.value];
+      }
+    })();
+  }
+
   public clear() {
     for (const slot of this.#slots) {
       slot.value = undefined as unknown as T;

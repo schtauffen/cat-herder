@@ -22,6 +22,10 @@ export class ZeroStore implements ComponentStore<unknown> {
     // No-op
   }
 
+  drain(): Iterable<[Key, unknown]> {
+    return [];
+  }
+
   size(): number {
     return 0;
   }

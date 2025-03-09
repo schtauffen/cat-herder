@@ -16,6 +16,7 @@ export type ComponentStore<T> = Iterable<T> & {
   set(key: Key, value: T): T | undefined;
   has(key: Key): boolean;
   remove(key: Key): T | undefined;
+  drain(): Iterable<[Key, T]>;
   size(): number;
 };
 
@@ -104,19 +105,20 @@ export class SlotMap<T> implements Iterable<T> {
     return this.#size;
   }
 
-  remove(key: Key): boolean {
+  remove(key: Key): T | undefined {
     const internalKey = this.#internalKeys[key.index];
     if (
       internalKey === undefined
             || key.generation !== internalKey.generation
             || !internalKey.occupied
     ) {
-      return false;
+      return undefined;
     }
 
     internalKey.generation += 1;
     internalKey.occupied = false;
     const deleting = internalKey.index;
+    const deleted = this.#data[deleting];
     this.#data[deleting] = this.#data[this.#size - 1];
     this.#data[this.#size - 1] = undefined;
     this.#erase[deleting] = this.#erase[this.#size - 1];
@@ -125,7 +127,7 @@ export class SlotMap<T> implements Iterable<T> {
     this.#free.push(key.index);
     this.#size -= 1;
 
-    return true;
+    return deleted;
   }
 
   #growCapacity(capacity: number) {

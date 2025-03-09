@@ -9,6 +9,7 @@ import {type Key, SlotMap, type ComponentStore} from './slot-map/slot-map.js';
 import {SecondaryMap} from './slot-map/secondary-map.js';
 import {ZeroStore} from './slot-map/zero-store.js';
 import {bindAllMethods} from './util/bind-all-methods.js';
+import {SparseSecondaryMap} from './slot-map/sparse-secondary-map.js';
 
 const entityAttribute = '@@entity';
 const tagAttribute = '@@tag';
@@ -180,6 +181,7 @@ class EcsStore<R> {
   public componentIds = new IdentityPool();
   public componentsMap = new Map<ComponentFactory, ComponentStore<unknown>>();
   public componentBits = new Map<ComponentFactory, number>();
+  public bitComponents = new Map<number, ComponentFactory>();
   public systems: Array<System<R>> = [];
 
   constructor() {
@@ -212,6 +214,7 @@ const zeroBitSet = new BitSet();
 
 export class World<R = Record<string, unknown>> {
   readonly #store = new EcsStore<R>();
+  readonly #deleting = new SparseSecondaryMap<BitSet>();
 
   constructor(public readonly resources: R) {
     bindAllMethods(this);
@@ -225,21 +228,10 @@ export class World<R = Record<string, unknown>> {
   }
 
   delete(entity: Key): void {
-    // Can just be overwritten lazily for now with SlotMaps
-    // const entityMask = entities.get(entity);
-    // if (!entityMask) {
-    //   return;
-    // }
-
-    // TODO - delay and batch?
-    // const toDelete = entityMask.toArray();
-    // for (const [factory, bit] of this.#componentBits.entries()) {
-    //   if (toDelete.indexOf(bit) !== -1) {
-    //     world.remove(factory, entity);
-    //   }
-    // }
-
-    this.#store.entities.remove(entity);
+    const toDelete = this.#store.entities.remove(entity);
+    if (toDelete !== undefined) {
+      this.#deleting.set(entity, toDelete);
+    }
   }
 
   /**
@@ -258,8 +250,10 @@ export class World<R = Record<string, unknown>> {
       secondary = secondaryType.withCapacity(this.#store.entities.size());
     }
 
+    const componentId = this.#store.componentIds.get();
+    this.#store.componentBits.set(factory, componentId);
+    this.#store.bitComponents.set(componentId, factory);
     this.#store.componentsMap.set(factory, secondary);
-    this.#store.componentBits.set(factory, this.#store.componentIds.get());
     return this;
   }
 
@@ -337,6 +331,21 @@ export class World<R = Record<string, unknown>> {
   update(): void {
     for (const system of this.#store.systems) {
       system(this);
+      this.#cleanupComponents(); // TODO - allow configuring when this is allowed
+    }
+  }
+
+  /**
+   * Util
+   */
+  #cleanupComponents() {
+    for (const [entity, bitset] of this.#deleting.drain()) {
+      for (const bit of bitset.toArray()) {
+        const factory = this.#store.bitComponents.get(bit);
+        if (factory !== undefined) {
+          this.remove(factory, entity);
+        }
+      }
     }
   }
 }

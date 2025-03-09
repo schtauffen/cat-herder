@@ -6,23 +6,23 @@ type Slot<T> = {
 };
 
 export class SparseSecondaryMap<T> implements ComponentStore<T> {
-  _slots = new Map<number, Slot<T>>();
+  readonly #slots = new Map<number, Slot<T>>();
 
   * [Symbol.iterator]() {
-    for (const slot of this._slots.values()) {
+    for (const slot of this.#slots.values()) {
       yield slot.value;
     }
   }
 
   public set(key: Key, value: T): T | undefined {
-    let slot = this._slots.get(key.index);
+    let slot = this.#slots.get(key.index);
     if (slot !== undefined && key.generation < slot.generation) {
       return undefined;
     }
 
     if (slot === undefined) {
       slot = {generation: key.generation, value};
-      this._slots.set(key.index, slot);
+      this.#slots.set(key.index, slot);
       return undefined;
     }
 
@@ -38,12 +38,12 @@ export class SparseSecondaryMap<T> implements ComponentStore<T> {
   }
 
   public has(key: Key): boolean {
-    const slot = this._slots.get(key.index);
+    const slot = this.#slots.get(key.index);
     return slot !== undefined && slot.generation === key.generation;
   }
 
   public get(key: Key): T | undefined {
-    const slot = this._slots.get(key.index);
+    const slot = this.#slots.get(key.index);
     if (slot === undefined || slot.generation !== key.generation) {
       return undefined;
     }
@@ -52,21 +52,32 @@ export class SparseSecondaryMap<T> implements ComponentStore<T> {
   }
 
   public remove(key: Key): T | undefined {
-    const slot = this._slots.get(key.index);
+    const slot = this.#slots.get(key.index);
     if (slot === undefined || slot.generation !== key.generation) {
       return undefined;
     }
 
     const removed = slot.value;
-    this._slots.delete(key.index);
+    this.#slots.delete(key.index);
     return removed;
   }
 
   public clear() {
-    this._slots.clear();
+    this.#slots.clear();
+  }
+
+  public drain(): Iterable<[Key, T]> {
+    const values = Array.from(this.#slots.entries());
+    this.#slots.clear();
+
+    return (function * () {
+      for (const [number, slot] of values) {
+        yield [{index: number, generation: slot.generation}, slot.value];
+      }
+    })();
   }
 
   public size(): number {
-    return this._slots.size;
+    return this.#slots.size;
   }
 }

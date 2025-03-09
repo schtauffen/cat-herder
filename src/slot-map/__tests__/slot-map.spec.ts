@@ -27,11 +27,10 @@ describe('SlotMap', () => {
     const key = slotMap.add({foo: 'bar'});
 
     // Act
-    slotMap.remove(key);
-    const result = slotMap.get(key);
+    const results = [slotMap.remove(key), slotMap.get(key)];
 
     // Assert
-    expect(result).toBeUndefined();
+    expect(results).toEqual([{foo: 'bar'}, undefined]);
   });
 
   it('should reuse indices', () => {
