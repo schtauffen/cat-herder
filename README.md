@@ -153,7 +153,7 @@ import { Entity, World } from 'cat-herder';
 
 const Name = (name: string) => ({ name });
 const Position = (vx: number, vy: number) => ({ vx, vy });
-const Dead = Tag(); // Tag components lack a component store
+const Dead = createTag(); // Tag components lack a component store
 
 const world = World({})
   .register(Name)
