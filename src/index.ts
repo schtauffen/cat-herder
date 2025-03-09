@@ -212,12 +212,30 @@ class EcsStore<R> {
 
 const zeroBitSet = new BitSet();
 
+export type WorldOptions = {
+  allowCleanup: boolean;
+};
+
 export class World<R = Record<string, unknown>> {
   readonly #store = new EcsStore<R>();
   readonly #deleting = new SparseSecondaryMap<BitSet>();
 
-  constructor(public readonly resources: R) {
+  readonly #options: WorldOptions;
+
+  constructor(public readonly resources: R, options: Partial<WorldOptions> = {}) {
+    const {allowCleanup = true} = options;
+
+    this.#options = {
+      allowCleanup,
+    };
+
     bindAllMethods(this);
+  }
+
+  public configure(options: Partial<WorldOptions>) {
+    if (options.allowCleanup !== undefined) {
+      this.#options.allowCleanup = options.allowCleanup;
+    }
   }
 
   /**
@@ -331,7 +349,10 @@ export class World<R = Record<string, unknown>> {
   update(): void {
     for (const system of this.#store.systems) {
       system(this);
-      this.#cleanupComponents(); // TODO - allow configuring when this is allowed
+
+      if (this.#options.allowCleanup) {
+        this.#cleanupComponents();
+      }
     }
   }
 
