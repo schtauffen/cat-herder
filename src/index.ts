@@ -340,3 +340,8 @@ export class World<R = Record<string, unknown>> {
     }
   }
 }
+
+export {type Key, type ComponentStore, SlotMap} from './slot-map/slot-map.js';
+export {SecondaryMap} from './slot-map/secondary-map.js';
+export {SparseSecondaryMap} from './slot-map/sparse-secondary-map.js';
+export {ZeroStore} from './slot-map/zero-store.js';
