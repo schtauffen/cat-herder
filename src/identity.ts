@@ -1,12 +1,12 @@
 export class IdentityPool implements IdentityPool {
-  private _id = 0;
-  private readonly _retired: number[] = [];
+  readonly #retired: number[] = [];
+  #id = 0;
 
   get() {
-    return this._retired.length > 0 ? this._retired.shift()! : this._id++;
+    return this.#retired.length > 0 ? this.#retired.shift()! : this.#id++;
   }
 
   retire(id: number) {
-    this._retired.push(id);
+    this.#retired.push(id);
   }
 }

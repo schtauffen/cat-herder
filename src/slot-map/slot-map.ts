@@ -11,7 +11,7 @@ type Slot = {
   occupied: boolean;
 } & Key;
 
-export type SecondaryMap<T> = Iterable<T> & {
+export type ComponentStore<T> = Iterable<T> & {
   get(key: Key): T | undefined;
   set(key: Key, value: T): T | undefined;
   has(key: Key): boolean;

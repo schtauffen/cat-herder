@@ -1,4 +1,4 @@
-import type {Key, SecondaryMap as SecondaryMapType} from './slot-map.js';
+import type {Key, ComponentStore} from './slot-map.js';
 
 type Slot<T> = {
   generation: number;
@@ -6,7 +6,7 @@ type Slot<T> = {
   value: T;
 };
 
-export class SecondaryMap<T> implements SecondaryMapType<T> {
+export class SecondaryMap<T> implements ComponentStore<T> {
   static withCapacity<T>(capacity: number) {
     const sm = new SecondaryMap<T>();
     sm.growCapacity(capacity);

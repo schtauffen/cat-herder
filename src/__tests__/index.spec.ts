@@ -100,20 +100,20 @@ describe('World', () => {
         expect(result!.name).toEqual('Tom');
       });
 
-      it('should return null for tag components', () => {
+      it('should return undefined for tag components', () => {
         world.register(MyTag);
         const entity = world.entity().with(MyTag)().build();
 
-        expect(world.get(MyTag, entity)).toEqual(null);
+        expect(world.get(MyTag, entity)).toEqual(undefined);
       });
 
-      it('should return null if entity doesn\'t have component', () => {
+      it('should return undefined if entity doesn\'t have component', () => {
         world.register(Name);
 
         const entity = world.entity().build();
         const result = world.get(Name, entity);
 
-        expect(result).toBeNull();
+        expect(result).toBeUndefined();
       });
 
       it('should throw for unregistered component', () => {
@@ -183,7 +183,7 @@ describe('World', () => {
         expect(name0!.name).toEqual('Bob');
         expect(pos0).toEqual({x: 1, y: 1});
         expect(name1!.name).toEqual('Tom');
-        expect(pos1).toEqual(null);
+        expect(pos1).toBeUndefined();
       });
 
       it('should throw on unregistered component', () => {
